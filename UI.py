@@ -11,13 +11,13 @@ import copy
 import threading
 from UI_geometry import create_widgets
 import traceback
+import numpy as np
+from scipy.interpolate import make_smoothing_spline
+from scipy.interpolate import UnivariateSpline
 
 import mod2
-#import mod3 
-import mod3_new as mod3
-
+import mod3 
 import mod4
-#import mod4_old as mod
 
 class Element(dict):
     def __init__(self, Z: int = 14, percent_at: float = 100.0): # Default: Si, 100% at.
@@ -89,7 +89,7 @@ class GUI_App(tk.Tk):
         if len(self.chi_val)==0:
             xmax = 10
         else:
-            xmax = max(self.chi_val[-9:]) + 10
+            xmax = max(self.chi_val) + 10
         self.ax1.set_xlim(0, xmax)
         self.ax1.xaxis.set_visible(False)
         for spine in self.ax1.spines.values():
@@ -98,26 +98,6 @@ class GUI_App(tk.Tk):
         # This tightens layout
         #self.figure1.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.05)
         self.canvas1.draw()
-
-    def update_exc_plot(self, event=None):
-        self.ax0.clear()
-        try:
-            self.ax0.plot(self.ec_energy, self.ec_yield, label='Exp',marker='.',color='tab:blue')
-            self.ax0.errorbar(self.ec_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue' )
-        except:
-            print("No experimental excitation.")
-        try:
-            self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',marker='.',color='tab:orange')
-        except:
-            print("No simulated excitation.")
-        #ax = self.ax0.gca()
-        self.ax0.legend(loc='best')
-        self.ax0.set_xlabel("Energy (keV)")
-        self.ax0.set_ylabel("Yield (Count/µC)")
-        self.ax0.set_ylim(bottom=0)
-        self.canvas.draw()       
-
-
 
     def scroll_up(self):
         if self.start_ctr > 0:
@@ -129,17 +109,46 @@ class GUI_App(tk.Tk):
             self.start_ctr += 1
             self.update_chi_plot()
 
+    def update_exc_plot(self, event=None):
+        self.ax0.clear()
+        # Experimental datapoints
+        try:
+            self.ax0.scatter(self.ec_energy, self.ec_yield, label='Exp',marker='.',color='tab:blue')   # HERE
+            self.ax0.errorbar(self.ec_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue' )
+        except:
+            print("No experimental excitation curve.")
+
+        # Simulation curve 
+        try:
+            self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',linestyle='--',marker='.',color='tab:orange')  # HERE
+
+            #self.y_spl = make_smoothing_spline(self.ec_energy, self.sim_curve, lam=None)
+            #self.y_spl = UnivariateSpline(self.ec_energy, self.sim_curve, s=1)
+            #self.sim_smooth_x = np.linspace(min(self.ec_energy),max(self.ec_energy),301)
+            #self.sim_smooth_y = self.y_spl(self.sim_smooth_x)
+            #self.ax0.plot(self.sim_smooth_x,self.sim_smooth_y,label='Sim',linestyle='--',color='tab:orange')
+        except:
+            print("No simulated excitation curve.")
+        #ax = self.ax0.gca()
+        self.ax0.legend(loc='best')
+        self.ax0.set_xlabel("Energy (keV)")
+        self.ax0.set_ylabel("Yield (Count/µC)")
+        self.ax0.set_ylim(bottom=0)
+        self.ax0.grid(alpha=0.4)
+        self.canvas.draw()       
 
     # GUI updates in top frames
     def refresh_layer_list(self):
         self.layer_listbox.delete(0, tk.END)
         for i, layer in enumerate(self.target["layers"]):
             # Retrieve symbols for all elements in this layer
-            element_symbols = [periodictable.elements[el["Z"]].symbol for el in layer["elements"]]
-            elements_str = ', '.join(element_symbols)
+            data = layer["elements"]
+            element_symbols = [periodictable.elements[el["Z"]].symbol for el in data]
+            element_percent = [el["percent_at"] for el in data]
+            elements_str = ', '.join(f"{sym}{int(percent)}" for sym, percent in zip(element_symbols, element_percent))
             self.layer_listbox.insert(
                 tk.END,
-                f"Layer {i + 1}: {layer['areal_density']} TFU, Elements: {elements_str}"
+                f"Layer {i + 1}: {layer['areal_density']} TFU ({elements_str})"
             )
         self.layer_listbox.select_set(self.selected_layer_index)
         # When starting the interface, filling in the textboxs:
@@ -213,7 +222,7 @@ class GUI_App(tk.Tk):
             #percent = float(self.composition_percent_entry.get())
             current_layer = self.target["layers"][self.selected_layer_index]
             current_layer["elements"].append(Element())
-            self.selected_el_index += 1
+            self.selected_el_index = len(current_layer["elements"]) - 1
             self.refresh_element_list()
             self.refresh_layer_list()
         except ValueError:
@@ -229,9 +238,45 @@ class GUI_App(tk.Tk):
                self.refresh_element_list()
                self.refresh_layer_list()
 
+    def normalize_percentages(self):
+        """
+        Adjusts the percent_at values so they sum to 100.0,
+        while keeping the selected element's value unchanged.
+        """
+
+        current_layer = self.target["layers"][self.selected_layer_index]
+        elements = current_layer["elements"]
+
+        # Extract current percentages
+        percentages = [el["percent_at"] for el in elements]
+        total = sum(percentages)
+
+        if abs(total - 100.0) < 1e-9:
+            return   # Already sums to 100
+
+        # Value to keep fixed
+        fixed_value = percentages[self.selected_el_index]
+
+        # Remaining sum that other elements should share
+        remaining = 100.0 - fixed_value
+
+        # Current sum of the other elements
+        current_other_sum = total - fixed_value
+
+        if current_other_sum == 0:
+            # If all others are zero, just set them proportionally equal
+            elements[self.selected_el_index]["percent_at"] = 100.0
+        else:
+            # Scale other elements proportionally
+            for i, el in enumerate(elements):
+                if i != self.selected_el_index:
+                    el["percent_at"] = el["percent_at"] / current_other_sum * remaining
+
+        self.refresh_element_list()
+        self.refresh_layer_list()
 
 
-    # Selection handlers
+    ## Selection handlers
 
     # Updating the layer text entries when selecting a layer in the listbox
     def on_layer_select(self, event=None):
@@ -311,28 +356,36 @@ class GUI_App(tk.Tk):
                 print("Invalid input. Please enter a valid number.")
 
 
-    # Calculations button
     def load_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls *.csv"),
         ("All Files", "*.*")])
         if file_path:
             try:
                 # Important raw data
-                df = pd.read_excel(file_path,sheet_name=0, header=1,engine='openpyxl')
-                self.ec_energy = df["Energie (keV)"].tolist()
-                self.ec_yield = df["Ng/µC"].tolist()
-                self.ec_yErr = df["Incertitude"].tolist()
-                # Sorting data 
-                sorted_indices = sorted(range(len(self.ec_energy)), key=lambda i: self.ec_energy[i])
+                self.script_dir = os.path.dirname(os.path.abspath(__file__))
+                settings_path = os.path.join(self.script_dir, 'import_file_settings.json')
+
+                with open(settings_path,'r', encoding="utf-8") as f:
+                    filedata = json.load(f)
+                    tab_nbr = filedata["sheet_number"]
+                    header_pos = filedata["header_pos"]
+                    header0 = filedata["energy_header_name"]
+                    header1 = filedata["yield_header_name"]
+                    header2 = filedata["yErr_header_name"]
+                df = pd.read_excel(file_path,sheet_name=tab_nbr, header=header_pos,engine='openpyxl')
+                self.ec_energy = df[header0].tolist()
+                self.ec_yield = df[header1].tolist()
+                self.ec_yErr = df[header2].tolist()
+                # Sorting data (by energy, ascending)
+                sorted_indices = sorted(range(len(self.ec_energy)), key=lambda i: self.ec_energy[i]) 
                 self.ec_energy = [self.ec_energy[i] for i in sorted_indices]
                 self.ec_yield = [self.ec_yield[i] for i in sorted_indices]
                 self.ec_yErr = [self.ec_yErr[i] for i in sorted_indices]
-                #messagebox.showinfo("File Loaded", f"Loaded file:\n{file_path}")
             except PermissionError:
                 messagebox.showerror("Permission Denied", 
                 f"Cannot open the file:\n{file_path}\n\n"
                 "Please close it in Excel or any other program and try again.")
-                print("PermissionError: File is likely open in another application.")
+                print("PermissionError: File is likely opened in another application.")
             except ValueError:
                 print("Couldn't load the data.")
             self.update_exc_plot()
@@ -342,7 +395,7 @@ class GUI_App(tk.Tk):
             print("No file selected")
     
     def load_target(self):
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json"),("All Files", "*.*")])
+        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
         if file_path:
             try:
                 with open(file_path,'r') as f:
@@ -398,26 +451,59 @@ class GUI_App(tk.Tk):
         threading.Thread(target=self.Calculation).start() # Prevents the GUI from freezing under load
 
     def Calculation(self):
+        if not hasattr(self, "ec_energy"):
+            messagebox.showerror("Run Calculation","No simulated excitation curve loaded.")
+            return None
+        
+        # Retrieving info from GUI first 
+        try:
+            beamWidth = float(self.beamSD_entry.get())
+        except:
+            messagebox.showerror("Run Calculation","No beam width value was entered.")
+            return None
+        DopplerYesNo = self.Doppler_bool.get()
+        SaveBroadData = self.broadSave_bool.get()
+
+
+
         if self.runNbr == 0:
             self.session_dir = os.path.join(self.base, "Session "+ self.timestamp)
-            os.mkdir(self.session_dir)
         
-        target_dir = os.path.join(self.session_dir, f"Run {self.runNbr}")
-        os.mkdir(target_dir)
+        if SaveBroadData:
+            if not os.path.isdir(self.session_dir):
+                os.mkdir(self.session_dir)
+            target_dir = os.path.join(self.session_dir, f"Run {self.runNbr}")
+            os.mkdir(target_dir)
         self.runNbr+=1
 
-        try: 
+        try:
+            try:
+                K = self.std_calc()
+            except:
+                messagebox.showerror("Run Calculation","Standard calculation error, make sure all the standards fields were correctly filled.")
+                return None
+
             self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
 
-            K = self.std_calc()
+            # Normalising target
+            for i, layer_i in enumerate(self.target["layers"]):
+                elements = layer_i["elements"]
+
+                # Extract current percentages
+                percentages = [el["percent_at"] for el in elements]
+                total = sum(percentages)
+                
+                if not total == 100.0:
+                # Scale everything proportionally
+                    for el in elements:
+                        el["percent_at"] = el["percent_at"] / total * 100.0
+                    self.refresh_layer_list()
+                    self.refresh_element_list()
+                    print(f"Normalised target layer {i}")
+
+            
 
             self.sim_curve = []
-
-            # Retrieving info from GUI first 
-            # stdH, stdS, stdY = self.get_std_info()
-            beamWidth = float(self.beamSD_entry.get())
-            DopplerYesNo = self.Doppler_bool.get()
-            SaveBroadData = self.broadSave_bool.get()
 
             self.target = mod2.assign_stopping(self.target,max(self.ec_energy))
             #os.chdir(path)
@@ -466,8 +552,6 @@ class GUI_App(tk.Tk):
             tb = traceback.extract_tb(e.__traceback__)
             for frame in tb:
                 print(f"File : {frame.filename}, line : {frame.lineno}, code : {frame.line}")
-
-            #self.run_button.config(text="Run calculation", style="Default.TButton", state="normal")
         
         # Unlocking the "Run Calculation" button
         self.run_button.config(text="Run calculation",style="Default.TButton", state="normal")
@@ -476,7 +560,7 @@ class GUI_App(tk.Tk):
     def Autofit():
         print("Not implemented yet")  
 
-    def save_to_json(self):
+    def save_target_json(self):
         file_path = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON files", "*.json")],title="Save JSON File")
         # Save the dictionary to the selected file
         if file_path:
@@ -486,18 +570,35 @@ class GUI_App(tk.Tk):
         else:
             print("Save canceled.")
 
+    def save_sim_curve_txt(self):
+
+        if not hasattr(self, "sim_curve"):
+            #print("No simulated excitation curve to save.")
+            messagebox.showwarning("Save simulated curve","No simulated excitation curve to save")
+            return None
+        try:
+            file_path = filedialog.asksaveasfilename(defaultextension=".txt",filetypes=[("TXT file", "*.txt")],title="Save Simulated curve")
+            # Save the dictionary to the selected file
+            if file_path:
+                with open(file_path, 'w') as file:
+                    for v1, v2 in zip(self.ec_energy, self.sim_curve):
+                        file.write(f"{v1:.3f}\t{v2:.1f}\n")
+                    print(f"File saved to: {file_path}")
+            else:
+                print("Save canceled.")
+        except Exception as e:
+            print(f"An error occurred: {type(e).__name__}: {e}")
+    
     # Closing
     def on_close(self):
-        # Ask the user if they want to save changes before closing
         exitDialogResult = messagebox.askyesnocancel("Quit", "Save the target before closing?")
         if exitDialogResult is True:
-            self.save_to_json()
+            self.save_target_json()
             self.quit()
         elif exitDialogResult is False:
             self.quit()
         else:
             return
-
 
 
 # Run app

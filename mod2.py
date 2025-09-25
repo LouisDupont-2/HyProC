@@ -1,5 +1,4 @@
 import os
-import subprocess
 import numpy as np
 import periodictable
 import json
@@ -124,7 +123,7 @@ def assign_stopping(target, energy):
                 partDidntEnterLayer = True
                 break
             S_in = calc_stopping_power(target["layers"][i],E_in)
-            print(f"Energy in:{E_in} & Stopping: {S_in}")
+            print(f"IN - Energy:{E_in:.3f} & Stopping: {S_in:.6f}")
             E_out = E_in - target["layers"][i]["areal_density"] * S_in
 
             if E_out < 0:
@@ -132,7 +131,7 @@ def assign_stopping(target, energy):
                 S_out = 0.000001
             else:
                 S_out = calc_stopping_power(target["layers"][i],E_out)
-            print(f"Energy out:{E_out} & Stopping end of layer: {S_out}")
+            print(f"OUT - Energy:{E_out:.3f} & Stopping: {S_out:.6f}")
 
             # Checking for variation 
             if abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0:
@@ -192,7 +191,7 @@ def assign_stopping(target, energy):
 
     return new_target
 
-os.chdir(r"C:\SRIM\SR Module")
+os.chdir(r"SRIM\SR Module")
 
 if __name__ == "__main__":
     with open("target_data.json",'r') as f:

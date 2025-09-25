@@ -1,0 +1,18 @@
+{
+    "layers": [
+        {
+            "areal_density": 2000.0,
+            "stopping": 0.25685064999999996,
+            "elements": [
+                {
+                    "Z": 1,
+                    "percent_at": 10.0
+                },
+                {
+                    "Z": 14,
+                    "percent_at": 90.0
+                }
+            ]
+        }
+    ]
+}

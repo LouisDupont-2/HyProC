@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
 from scipy.signal import convolve
 import json
 import periodictable
@@ -207,7 +205,7 @@ def DopplerSD(target, index):
         delta_D (float): Doppler standard deviation (delta_D) for the incident particle in the specified layer.
     """
     Z = get_Z(target,index, excl_H=True)
-    print("Z Doppler", Z)
+    #print("Z Doppler", Z)
     if Z == 14:  # H-Si binding
         delta_D = 4.00
     elif Z == 22:  # H-Ti binding
@@ -243,18 +241,23 @@ def stragg(E_in, E_loss, index, target):
     material thickness, and selected model.
 
     Parameters:
-        Z (int or float) : Atomic number of the material.
-        thickness (float) : Thickness of the material layer (units depend on model).
-        model (str, optional) : Model to use for calculation; "Rud" (default) or "Bohr".
+        E_in (float): Incident energy.
+        E_loss (list): Cumulative energy loss values for each layer.
+        index (int): Index of the layer where the resonance occurs.
+                     Special values: -2 if resonance is before the target,
+                                     -1 if resonance is beyond the last layer.
+        target (dict): Dictionary representing the target structure, including layer areal densities and stopping powers.
 
     Returns:
         float : Calculated straggling value according to the selected model.
     """
     Var_S = 0.0
     model = "Rud corr"
-    if True:
+    if False:
         A = get_A(target, index)
         density = get_density(target,index)
+    else:
+        A, density = 1, 1.0
     if index == -1:
         for j in range(len(target["layers"])):
             Z = get_Z(target, j, excl_H=False) # Extracting elemental composition of the layer
@@ -324,7 +327,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     """
     E_loss = loss_axis(target)
     index = find_layer_index(E_in, E_loss)
-    print('index',index)
+    # print('index',index)
     
     if Doppler: 
         if index==-2:
@@ -351,9 +354,9 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         E_center = E_in
     else:
         E_center = E_R
+        
     Range = 4
-    x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 51) # CHANGE LATER for 1.8 keV sampling??
-    # x = np.sort(np.concatenate([np.arange(E_R, E_R-Range*SD_gauss, -Gamma), np.arange(E_R + Gamma, E_R+Range*SD_gauss, Gamma)]))
+    x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 1501) 
     dx = x[1] - x[0]
     
     # Where to center the broadening curve
@@ -376,7 +379,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     x_conv = x_conv - (mean_conv - mean_y1)  # Centering the x axis on the resonance energy
 
     center = find_total_thickness(E_in, E_loss, index, target)  # Thickness at which the energy resonance is reached for a given incident energy
-    print("c ",center)
+    # print("c ",center)
     deltaE_in = E_in - E_R  # Energy loss to get to the resonance
 
     # Changing the x-axis from energy (keV) to thickness (TFU)
@@ -454,10 +457,10 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
             save(x, gauss(x,E_center, delta_S), savepath+"\\"+"Stragg.txt")
         if Doppler:
             save(x, gauss(x,E_center, delta_D), savepath+"\\"+"Doppler.txt")
-        save(x, y1,savepath+"\\"+"Total Gauss.txt")
+        save(x, y1,savepath+"\\"+"Total_Gauss.txt")
         save(x, lorentz(x,E_R, Gamma,sigma_R), savepath+"\\"+"xsec.txt")
-        save(x_conv, y_conv,savepath+"\\"+"Total Broadening.txt")
-        save(x_conv_TFU, y_conv_TFU,savepath+"\\"+"Total Broadening stepped.txt")
+        save(x_conv, y_conv,savepath+"\\"+"Total_Broadening.txt")
+        save(x_conv_TFU, y_conv_TFU,savepath+"\\"+"Total_Broadening_TFU.txt")
         # os.chdir("..")"C:\HyProC\target_data_NEWtest.json"
 
     return center, x_conv_TFU, y_conv_TFU, layers_contribution, outOfTarget

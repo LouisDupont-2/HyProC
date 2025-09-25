@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import quad
 from scipy.interpolate import interp1d
-from scipy.signal import convolve
 import json
+from matplotlib.patches import Patch
 
 # Creating the hydrogen profile from the target
 def cH_make(target):
@@ -16,7 +15,7 @@ def cH_make(target):
     for layer in target["layers"]:
         z1_fraction = sum(elem["percent_at"] for elem in layer["elements"] if elem["Z"] == 1) 
         cH_y.append(z1_fraction)
-    cH_y.insert(0, 0.0)
+    cH_y.insert(0, 0.0) # Inserting 0.0 at index 0
 
     return cH_x, cH_y
 
@@ -51,7 +50,7 @@ def chi_squared_test(y_exp, y_sim):
 
 
 if __name__ == "__main__":
-    with open(r"C:\Users\louis\OneDrive - Université de Namur\Documents\Mémoire (MA2)\OwnCode\target_data.json",'r') as f:
+    with open(r"C:\Users\louis\OneDrive - Université de Namur\Documents\Mémoire (MA2)\OwnCode\TiH2 fit BEST FIX.json",'r') as f:
         target_input = json.load(f)
         print('Loaded')
 
@@ -60,8 +59,36 @@ if __name__ == "__main__":
     cH_fct = interp1d(x, y, kind='next', bounds_error=False, fill_value=0)
     x0 = np.linspace(0,max(x),500)
     y0 = cH_fct(x0)
-    fig, ax = plt.subplots()
-    ax = plt.step(x,y,where='pre')
-    ax = plt.plot(x0,y0, label='interp')
-    plt.legend()
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax = plt.step(x,y,where='pre',linewidth=2)
+    plt.xlabel("x (TFU)", fontsize=16)
+    plt.ylabel("H at. %", fontsize=16)
+    plt.xlim(left=0)
+    plt.ylim(top=max(y)+5)
+    plt.grid()
+    highlight_ranges = [(0, 80), (80,1500)]
+    labels = ['Matrice C', 'Matrice Ti']
+
+    ax = plt.gca()
+    colors = ["#cfcfcf", "#f0f0f0"]  
+    for i, (start, end) in enumerate(highlight_ranges):
+        ax.axvspan(start, end, color=colors[i % len(colors)], alpha=0.85)
+    legend_patches = [Patch(facecolor=colors[i], alpha=0.999, label=labels[i]) 
+        for i in range(len(highlight_ranges))]
+    
+    # Add text labels above each step
+    disp_y_shift = 2*max(y)/100
+    for i in range(1,len(x)-1):
+        x_mid = (x[i-1] + x[i]) / 2       # midpoint of the horizontal segment
+        y_pos = y[i]                # slightly below the step
+        plt.text(x_mid, y_pos+disp_y_shift, str(x[i]-x[max(i-1,0)]), ha='center', va='bottom', fontsize=10)
+        plt.text(x_mid, y_pos-disp_y_shift, str(y[i]), ha='center', va='top', fontsize=12)
+
+    # Adjust the last point: center relative to previous x
+    x_last = (x[-2] + x[-1]) / 2  # midpoint between last two x
+    y_last = y[-1]
+    plt.text(x_last, y_last+disp_y_shift, str(x[-1]-x[-2]), ha='center', va='bottom', fontsize=10)
+    plt.text(x_last, y_last-disp_y_shift, str(y[-1]), ha='center', va='top', fontsize=12)
+    #ax = plt.plot(x0,y0, label='interp')
+    plt.legend(handles=legend_patches,fontsize=12)
     plt.show()

@@ -1,8 +1,7 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox,ttk
+from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
-from datetime import datetime
 
 def create_widgets(self):
         # Main Frame
@@ -14,17 +13,20 @@ def create_widgets(self):
         self.left_frame = ttk.Frame(self.main_frame,width=150)
         self.left_frame.pack(side='left',fill='y', expand=False, padx=5, pady=5)
 
-        self.import_button = ttk.Button(self.left_frame, text="Import experimental\n    excitation curve", width=20,command=self.load_file)
+        self.import_button = ttk.Button(self.left_frame, text="Import excitation curve", width=20,command=self.load_file)
         self.import_button.pack(fill="x",padx=10,pady=(10,0))
 
         self.run_button = ttk.Button(self.left_frame, text='Run calculation',command=self.start_calc)
         self.run_button.pack(fill="x",padx=10,pady=(0,10))
 
         self.load_target_button = ttk.Button(self.left_frame, text='Load target',command=self.load_target)
-        self.load_target_button.pack(fill="x",padx=10,pady=(15,0))
+        self.load_target_button.pack(fill="x",padx=10,pady=(10,0))
 
-        self.save_target_button = ttk.Button(self.left_frame, text='Save target',command=self.save_to_json)
+        self.save_target_button = ttk.Button(self.left_frame, text='Save target',command=self.save_target_json)
         self.save_target_button.pack(fill="x",padx=10,pady=(0,10))
+
+        self.save_sim_curve_button = ttk.Button(self.left_frame, text='Save simulated curve',command=self.save_sim_curve_txt)
+        self.save_sim_curve_button.pack(fill="x",padx=10,pady=(10,5))
 
         # Standard frame
         self.std_frame = ttk.LabelFrame(self.left_frame, text="Standard")
@@ -51,7 +53,7 @@ def create_widgets(self):
         self.options_frame1 = ttk.Frame(self.options_frame)
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=5)
         
-        ttk.Label(self.options_frame1, text="Beam Stdev (keV):").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Beam SD (keV):").grid(row=0, column=0, padx=5, pady=5, sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1,width=12)
         self.beamSD_entry.grid(row=0, column=1, padx=5, pady=(0,5),sticky='e')
 
@@ -117,10 +119,10 @@ def create_widgets(self):
         self.add_layer_button.grid(row=0,column=0, padx=5)
     
         self.remove_layer_button = ttk.Button(self.left_button_frame, text="Remove Layer", width=layer_button_size, command=self.remove_layer)
-        self.remove_layer_button.grid(row=0,column=1, padx=5)
+        self.remove_layer_button.grid(row=1,column=0, padx=5)
     
         self.up_button = ttk.Button(self.left_button_frame, text="Move Up", width=layer_button_size,command=self.move_layer_up)
-        self.up_button.grid(row=1,column=0, padx=5)
+        self.up_button.grid(row=0,column=1, padx=5)
     
         self.down_button = ttk.Button(self.left_button_frame, text="Move Down", width=layer_button_size, command=self.move_layer_down)
         self.down_button.grid(row=1,column=1, padx=5)
@@ -157,7 +159,7 @@ def create_widgets(self):
         self.composition_percent_entry.bind("<FocusOut>", lambda event: self.element_on_entry_update(event, 'percent_at'))
         self.composition_percent_entry.bind("<Return>", lambda event: self.element_on_entry_update(event, 'percent_at'))
 
-        # Element Button (add)
+        # Element Buttons
         self.right_button_frame = ttk.Frame(self.target_right_frame)
         self.right_button_frame.pack(anchor='center', padx=10, pady=5)
 
@@ -166,6 +168,9 @@ def create_widgets(self):
 
         self.remove_element_button = ttk.Button(self.right_button_frame, text="Remove Element from Layer", width=30, command=self.remove_element)
         self.remove_element_button.grid(row=1, padx=5)
+
+        self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.normalize_percentages)
+        self.norm_element_button.grid(row=2, padx=5, pady=(5,0))
 
         #################################
         # Canvas for excitation curves

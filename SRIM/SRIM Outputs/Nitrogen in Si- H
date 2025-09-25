@@ -1,0 +1,43 @@
+ ==================================================================
+              SRIM version ---> SRIM-2012.03
+              Calc. date   ---> July 03, 2025 
+ ==================================================================
+
+ Disk File Name = SRIM Outputs\Nitrogen in Si- H
+
+ Ion = Nitrogen [7] , Mass = 15 amu
+
+ Target Density =  2.0962E+00 g/cm3 = 4.9742E+22 atoms/cm3
+ ======= Target  Composition ========
+    Atom   Atom   Atomic    Mass     
+    Name   Numb   Percent   Percent  
+    ----   ----   -------   -------  
+     Si     14    090.00    099.60   
+      H      1    010.00    000.40   
+ ====================================
+ Bragg Correction = 0.00%
+ Stopping Units =   eV / (1E15 atoms/cm2)
+ See bottom of Table for other Stopping units 
+
+   Ion        dE/dx      dE/dx     Projected  Longitudinal   Lateral
+  Energy      Elec.      Nuclear     Range     Straggling   Straggling
+-----------  ---------- ---------- ----------  ----------  ----------
+   4.00 MeV   2.588E+02  8.573E-01    4.09 um     2380 A      3100 A   
+   4.50 MeV   2.590E+02  7.784E-01    4.48 um     2471 A      3186 A   
+   5.00 MeV   2.588E+02  7.136E-01    4.86 um     2557 A      3267 A   
+   5.50 MeV   2.583E+02  6.595E-01    5.25 um     2641 A      3344 A   
+   6.00 MeV   2.576E+02  6.136E-01    5.64 um     2721 A      3419 A   
+   6.40 MeV   2.569E+02  5.815E-01    5.95 um     2775 A      3477 A   
+-----------------------------------------------------------
+ Multiply Stopping by        for Stopping Units
+ -------------------        ------------------
+  4.9742E-01                 eV / Angstrom 
+  4.9742E+00                keV / micron   
+  4.9742E+00                MeV / mm       
+  2.3730E-02                keV / (ug/cm2) 
+  2.3730E-02                MeV / (mg/cm2) 
+  2.3730E+01                keV / (mg/cm2) 
+  1.0000E+00                 eV / (1E15 atoms/cm2)
+  1.0796E-02                L.S.S. reduced units
+ ==================================================================
+ (C) 1984,1989,1992,1998,2008 by J.P. Biersack and J.F. Ziegler
