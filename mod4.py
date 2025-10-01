@@ -36,10 +36,11 @@ def compute_yield(target, x_conv_TFU, y_conv, H_std=None, Y_sample=None, S_sampl
     a = min(0,min(x_conv_TFU))
     b = max(x_conv_TFU)
 
-    xa = np.arange(a,b+1,1)
+    res = 0.1
+    xa = np.arange(a,b+res,res)
     f1 = cH_fct(xa)
     f2 = broad(xa)
-    area = sum(f1*f2)
+    area = sum(f1*f2) * res
     integral = area    
 
     return integral
@@ -50,6 +51,7 @@ def chi_squared_test(y_exp, y_sim):
 
 
 if __name__ == "__main__":
+    
     with open(r"C:\Users\louis\OneDrive - Université de Namur\Documents\Mémoire (MA2)\OwnCode\TiH2 fit BEST FIX.json",'r') as f:
         target_input = json.load(f)
         print('Loaded')

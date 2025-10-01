@@ -44,7 +44,6 @@ class GUI_App(tk.Tk):
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         
         self.runNbr = 0
-        
 
         self.title("HyProC")
         self.geometry("850x900")
@@ -89,7 +88,7 @@ class GUI_App(tk.Tk):
         if len(self.chi_val)==0:
             xmax = 10
         else:
-            xmax = max(self.chi_val) + 10
+            xmax = max(visible_values) + 10
         self.ax1.set_xlim(0, xmax)
         self.ax1.xaxis.set_visible(False)
         for spine in self.ax1.spines.values():
@@ -117,7 +116,6 @@ class GUI_App(tk.Tk):
             self.ax0.errorbar(self.ec_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue' )
         except:
             print("No experimental excitation curve.")
-
         # Simulation curve 
         try:
             self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',linestyle='--',marker='.',color='tab:orange')  # HERE
@@ -127,8 +125,8 @@ class GUI_App(tk.Tk):
             #self.sim_smooth_x = np.linspace(min(self.ec_energy),max(self.ec_energy),301)
             #self.sim_smooth_y = self.y_spl(self.sim_smooth_x)
             #self.ax0.plot(self.sim_smooth_x,self.sim_smooth_y,label='Sim',linestyle='--',color='tab:orange')
-        except:
-            print("No simulated excitation curve.")
+        except :
+            pass
         #ax = self.ax0.gca()
         self.ax0.legend(loc='best')
         self.ax0.set_xlabel("Energy (keV)")
@@ -331,7 +329,6 @@ class GUI_App(tk.Tk):
     def element_on_entry_update(self, event=None, entry_type=None):
         selected = self.elem_listbox.curselection()  # Get selected element in the list
         if selected:  # Ensure something is selected
-            selected_index = selected[0]  # Get the index of the selected element
 
             current_layer = self.target["layers"][self.selected_layer_index]
             element = current_layer["elements"][self.selected_el_index]  # Get the selected element
@@ -464,7 +461,7 @@ class GUI_App(tk.Tk):
         DopplerYesNo = self.Doppler_bool.get()
         SaveBroadData = self.broadSave_bool.get()
 
-
+        print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
 
         if self.runNbr == 0:
             self.session_dir = os.path.join(self.base, "Session "+ self.timestamp)
@@ -480,7 +477,7 @@ class GUI_App(tk.Tk):
             try:
                 K = self.std_calc()
             except:
-                messagebox.showerror("Run Calculation","Standard calculation error, make sure all the standards fields were correctly filled.")
+                messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards fields were correctly filled.")
                 return None
 
             self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
@@ -501,10 +498,10 @@ class GUI_App(tk.Tk):
                     self.refresh_element_list()
                     print(f"Normalised target layer {i}")
 
-            
-
+        
             self.sim_curve = []
 
+            size_before = len(self.target["layers"])
             self.target = mod2.assign_stopping(self.target,max(self.ec_energy))
             #os.chdir(path)
 
@@ -545,7 +542,11 @@ class GUI_App(tk.Tk):
 
             self.refresh_element_list()
             self.refresh_layer_list()
-            print("Calculation completed.") # {mod4.chi_squared_test(self.ec_yield,self.sim_curve)}
+
+            if not len(self.target["layers"]) == size_before:
+                messagebox.showinfo("Calculations","A layer has been segmented to more accurately describe stopping powers.")
+
+            print("*-*-*-*-*-*-* Calculation completed *-*-*-*-*-*-*") 
         except Exception as e:
             print(f"An error occurred: {type(e).__name__}: {e}")
             traceback.print_exc()

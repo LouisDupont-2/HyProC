@@ -1,5 +1,5 @@
 Ion = Nitrogen    , Mass = 15
-Tgt =  H + Si (Solid), Density = 2.0589 g/cm3
+Tgt = Si +  O +  H (Solid), Density = 1.5259 g/cm3
 Stopping Units =  eV/(1E15 atoms/cm2)
 Energy(keV)  S(Elec)    S(Nuc)
-6.385E+03   2.526E+02  5.641E-01 
+6.391E+03   2.281E+02  4.616E-01 

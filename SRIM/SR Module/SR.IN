@@ -4,14 +4,15 @@
 ---Ion(Z), Ion Mass(u)
 7   15.000
 ---Target Data: (Solid=0,Gas=1), Density(g/cm3), Compound Corr.
-0   2.0589    0
+0   1.5259    0
 ---Number of Target Elements 
-2
+3
 ---Target Elements: (Z), Target name, Stoich, Target Mass(u) 
-1   "hydrogen"   12.0    1.008
-14   "silicon"   88.0    28.085
+14   "silicon"   33.33333333333333    28.085
+8   "oxygen"   65.65656565656566    15.999
+1   "hydrogen"   1.0101010101010102    1.008
 ---Output Stopping Units (1-8) 
 7 
 ---Ion Energy : E-Min(keV), E-Max(keV) 
 0   0 
-6385
+6390.628499444445

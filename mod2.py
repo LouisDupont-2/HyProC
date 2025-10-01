@@ -58,7 +58,7 @@ def write_input(layer, energy, ind=0):
 
 # Reading output file from SRIM
 def read_stoppower():
-    with open("Output", 'r') as f:
+    with open("Output", 'r') as f: # Output is the file name!!
         lines = f.readlines()
         
     # Find the line containing "Stopping Units"
@@ -87,8 +87,8 @@ def read_stoppower():
 # Using SRIM to calculate stopping power
 def calc_stopping_power(layer,energy,ind = 0):
     write_input(layer,energy,ind)
-    os.startfile(r"C:\SRIM\SR Module\SRModule.exe")
-    time.sleep(0.5) # Leaving some time so SRIM (SR Module) can run
+    os.startfile(r"SRModule.exe")
+    time.sleep(0.25) # Leaving some time so SRIM (SR Module) can run
 
     return read_stoppower()/1000 # Final units: keV/TFU
 
@@ -112,18 +112,18 @@ def assign_stopping(target, energy):
         while abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0: 
             if i == 0:
                 E_in = energy 
-                print("First layer,E in: ", E_in)
+                print('--- Layer #0, E in: ', E_in)
             else:
                 k = len(new_target["layers"])
                 loss = sum(new_target["layers"][n]["areal_density"] * new_target["layers"][n]["stopping"] for n in range(k))
                 E_in = energy - loss
-                print("Not first layer, E in: ", E_in)
+                print(f'--- Layer #{i}, E in: ', E_in)
 
             if E_in <= 0:
                 partDidntEnterLayer = True
                 break
             S_in = calc_stopping_power(target["layers"][i],E_in)
-            print(f"IN - Energy:{E_in:.3f} & Stopping: {S_in:.6f}")
+            print(f"IN - Energy: {E_in:.3f} & Stopping: {S_in:.6f}")
             E_out = E_in - target["layers"][i]["areal_density"] * S_in
 
             if E_out < 0:
@@ -131,7 +131,7 @@ def assign_stopping(target, energy):
                 S_out = 0.000001
             else:
                 S_out = calc_stopping_power(target["layers"][i],E_out)
-            print(f"OUT - Energy:{E_out:.3f} & Stopping: {S_out:.6f}")
+            print(f'OUT - Energy: {E_out:.3f} & Stopping: {S_out:.6f}')
 
             # Checking for variation 
             if abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0:
@@ -140,11 +140,11 @@ def assign_stopping(target, energy):
                 ctr+=1
             else:
                 target["layers"][i]["stopping"] = (S_in + S_out) / 2 # No segmentation required, assigning stopping power (mid layer approx)
-                print("End of segmentation")
+                print(f'Final Stopping: {target["layers"][i]["stopping"]} keV/TFU')
 
         # Onward: out of while loop
-        print("ctr",ctr)
-        NbrDaughter = 2**ctr
+        #print("ctr",ctr)
+        #NbrDaughter = 2**ctr
         if ctr ==2:
             Count = 2
         else:
@@ -156,7 +156,7 @@ def assign_stopping(target, energy):
         # Segmentation sequence
         for k in range(Count):
             new_target["layers"].append(copy.deepcopy(target["layers"][i]))
-            print(k) 
+            #print(k) 
 
         # Assigning stopping powers to the segmentated target
         for k in range(Count):
@@ -164,15 +164,15 @@ def assign_stopping(target, energy):
             # print('nbr', nbr)
             if k == 0:
                 if partDidntEnterLayer:
-                    print(index)
+                    #print(index)
                     new_target["layers"][index]["stopping"] = 0
                 #continue
-            print(list)
-            print(k)
+            #print(list)
+            #print(k)
             loss = sum(new_target["layers"][n]["areal_density"] * new_target["layers"][n]["stopping"] for n in range(nbr+k))
-            print("loss: ", loss)
+            #print("loss: ", loss)
             E_in = energy - loss
-            print("E in: ", E_in)
+            #print("E in: ", E_in)
             if E_in <= 0 or partDidntEnterLayer: # If the particle doesn't reach the start of layer, putting stopping power to 0
                 # new_target["layers"][k]["stopping"] = new_target["layers"][k-1]["stopping"]
                 new_target["layers"][k+nbr]["stopping"] = 0
@@ -198,8 +198,6 @@ if __name__ == "__main__":
         target_input = json.load(f)
     print("Number of layer in input file:",len(target_input["layers"]))
 
-    # 5939.1179
-    # energy_res
     new_target = assign_stopping(target_input,energy_res)
 
     with open(r"C:\HyProC\target_data_NEW final test.json","w") as f:

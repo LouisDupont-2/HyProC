@@ -342,8 +342,6 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
 
     if index==-2:
         delta_S = 0
-    #if index==-1:
-    #    delta_S = stragg(E_in, E_loss, len(target["layers"])-1, target)
     else:
         delta_S = stragg(E_in, E_loss, index, target)
 
@@ -352,6 +350,8 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     # Where to center the broadening curve
     if E_in < E_R:
         E_center = E_in
+    elif index == -1:
+        E_center = E_in - max(E_loss)
     else:
         E_center = E_R
         
@@ -359,11 +359,6 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 1501) 
     dx = x[1] - x[0]
     
-    # Where to center the broadening curve
-    if E_in < E_R:
-        E_center = E_in
-    else:
-        E_center = E_R
     y1 = gauss(x, E_center, SD_gauss)
     y1 /= np.trapz(y1,x)  # Normalising
     mean_y1 = np.trapz(x * y1, x)
@@ -397,7 +392,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         # If target escape (front)
         if new_index == -2:
             #value = center + (Eloss_value - deltaE_in)/target["layers"][0]["stopping"]
-            value = Eloss_value/target["layers"][0]["stopping"]
+            x_value = Eloss_value/target["layers"][0]["stopping"]
             y_value = 0.0
             y_value = y_conv[l]
             # y_conv[np.where(x_conv == eVal)] = 0
@@ -405,9 +400,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         
         # If target escape (back)
         if new_index == -1:
-            value = 0.0
-            for k in range(len(target["layers"])):
-                value += target["layers"][k]["areal_density"]
+            x_value = sum(target["layers"][k]["areal_density"] for k in range(len(target["layers"]))) + (Eloss_value-max(E_loss))/target["layers"][0]["stopping"]
             y_value = 0.0
             # y_conv[np.where(x_conv == eVal)] = 0
             outOfTarget += 1
@@ -416,6 +409,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         if new_index > -1:
             y_value = y_conv[l]
             layers_contribution[new_index] += 1
+        
             if new_index != index and index > -1:
                 
                 low_index = min(index, new_index)
@@ -423,30 +417,31 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
                 low_loss = min(deltaE_in, Eloss_value)
                 high_loss = max(deltaE_in, Eloss_value)
 
-                fullLayerThicknesses = 0.0
                 if abs(new_index-index) >= 2:
-                    for i in np.arange(low_index + 1, high_index, 1):
-                        fullLayerThicknesses += target["layers"][i]["areal_density"]
+                    fullLayerThicknesses = sum(target["layers"][i]["areal_density"] for i in range(low_index + 1, high_index, 1))
+                else:
+                    fullLayerThicknesses = 0.0
                 
-                value = center + np.sign(new_index - index) * (fullLayerThicknesses + abs(low_loss-E_loss[low_index])/target["layers"][low_index]["stopping"] + abs(high_loss-E_loss[high_index-1])/target["layers"][high_index]["stopping"] )
+                x_value = center + np.sign(new_index - index) * (fullLayerThicknesses + abs(low_loss-E_loss[low_index])/target["layers"][low_index]["stopping"] + abs(high_loss-E_loss[high_index-1])/target["layers"][high_index]["stopping"] )
+                
             elif new_index > 0 and index == -2:
-                fullLayerThicknesses = 0.0
-                if new_index >= 1:
-                    for i in np.arange(0, new_index, 1):
-                        fullLayerThicknesses += target["layers"][i]["areal_density"]
-                value = fullLayerThicknesses + (Eloss_value-E_loss[new_index-1])/target["layers"][new_index]["stopping"]
-            else:
-                value = center + (Eloss_value - deltaE_in)/target["layers"][new_index]["stopping"]  # Here, using index or new_index is equivalent            
-        
-        x_conv_TFU.append(value)
-        y_conv_TFU.append(y_value)
+                fullLayerThicknesses = sum(target["layers"][i]["areal_density"] for i in range(0, new_index)) 
+                x_value = fullLayerThicknesses + (Eloss_value-E_loss[new_index-1])/target["layers"][new_index]["stopping"]
 
+            elif new_index >= 0 and index == -1:
+                fullLayerThicknesses = sum(target["layers"][i]["areal_density"] for i in range(new_index+1,len(target["layers"]))) 
+                x_value = center - fullLayerThicknesses + (Eloss_value-E_loss[new_index])/target["layers"][new_index]["stopping"]
+
+            else:
+                x_value = center + (Eloss_value - deltaE_in)/target["layers"][new_index]["stopping"]  # Here, using index or new_index is equivalent            
+        
+        x_conv_TFU.append(x_value)
+        y_conv_TFU.append(y_value)
 
     # Normalising to get layer contribution in %
     total = sum(layers_contribution) + outOfTarget
     layers_contribution = [x / total for x in layers_contribution]
     outOfTarget /= sum(layers_contribution) + outOfTarget
-
     
     if saveData:
         print(savepath)
