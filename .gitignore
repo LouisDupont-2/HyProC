@@ -1,3 +1,4 @@
 __pycache__/
-SRIM/SR Module/Output
-SRIM/SR Module/SR.IN
+SRIM/
+broadplotter old.py
+.vscode/

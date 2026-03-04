@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import convolve
 import json
 import periodictable
@@ -160,7 +159,8 @@ def find_total_thickness(E_in, E_loss, index, target):
     """
     Calculates the total thickness traveled by the incident particle up to the resonance point in the target.
 
-    For cases where the resonance occurs before the first layer or after the last layer, it computes
+    For cases where the projectile's energy is lower than the resonance's energy upon entering the target
+    or when the projectile leaves the target with an energy higher the resonance's energy, it computes
     appropriate offsets or returns the total target thickness. Otherwise, it sums the full thickness
     of all preceding layers and adds the partial thickness in the resonance layer.
 
@@ -213,7 +213,7 @@ def DopplerSD(target, index):
     elif Z == 82:  # H-Pb binding
         delta_D = 2.55
     else:  # Other element (approx based on the above data)
-        delta_D = -0.0218*Z+4.2421  # parameters calculated from a fit between 2 elements
+        delta_D = -0.0218*Z+4.2421  # parameters calculated from a fit between Si & Pb
     return delta_D
 
 def Stragg_law(Z, thickness, model="Rud",A=None,density=None):
@@ -249,7 +249,7 @@ def stragg(E_in, E_loss, index, target):
         target (dict): Dictionary representing the target structure, including layer areal densities and stopping powers.
 
     Returns:
-        float : Calculated straggling value according to the selected model.
+        Stg (float) : Calculated straggling value according to the selected model.
     """
     Var_S = 0.0
     model = "Rud corr"
@@ -318,16 +318,16 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         saveData (bool, optional) : Whether to save intermediate broadening data to files (default False).
         savepath (str, optional) : Path to directory for saving data files if saveData is True.
 
-    Returns:
-        center (float) : Thickness within the target at which resonance is reached (in TFU).
-        x_conv_TFU (list of float) : Thickness values corresponding to the broadened energy profile.
-        y_conv_TFU (list of float) : Intensity values of the broadened profile mapped to thickness.
+    Returns
+    -------
+        center (float) : Thickness within the target at which resonance is reached (in TFU).  
+        x_conv_TFU (list of float) : Thickness values corresponding to the broadening energy profile.
+        y_conv_TFU (list of float) : Probability values of the broadening profile mapped to thickness.
         layers_contribution (list of float) : Normalized contributions of each layer to the profile.
         outOfTarget (float) : Fraction of the profile corresponding to particles escaping the target.
     """
     E_loss = loss_axis(target)
     index = find_layer_index(E_in, E_loss)
-    # print('index',index)
     
     if Doppler: 
         if index==-2:

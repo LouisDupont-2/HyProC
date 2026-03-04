@@ -1,0 +1,11 @@
+{
+    "SRIM_path": "C:/SRIM",
+    "import_curve":{
+        "sheet_number": 0,
+        "header_pos": 1,
+        "energy_header_name": "Energie (keV)",
+        "yield_header_name": "Ng/µC",
+        "yErr_header_name": "Incertitude"
+    }
+        
+}

@@ -3,38 +3,90 @@ from tkinter import filedialog, messagebox,ttk
 import periodictable
 import json
 import pandas as pd
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
 import os
 from datetime import datetime
 import copy
 import threading
-from UI_geometry import create_widgets
+import UI_geometry
 import traceback
-import numpy as np
-from scipy.interpolate import make_smoothing_spline
-from scipy.interpolate import UnivariateSpline
 
 import mod2
 import mod3 
 import mod4
 
 class Element(dict):
-    def __init__(self, Z: int = 14, percent_at: float = 100.0): # Default: Si, 100% at.
+    def __init__(self, data=None, Z: int = 14, percent_at: float = 100.0): # Default: Si, 100% at.
         super().__init__()
-        self["Z"] = Z
-        self["percent_at"] = percent_at
+        if data is not None:
+            self.update(data)
+        else:
+            self["Z"] = Z
+            self["percent_at"] = percent_at
 
 class Layer(dict):
-    def __init__(self, AD: float = 1000.0):
+    def __init__(self, data=None, AD: float = 1000.0):
         super().__init__()
-        self["areal_density"] = AD
-        self["stopping"] = 0.01 # Dummy value
-        self["elements"] = [Element()]  
+        if data is not None:
+            self.update(data)
+            self["elements"] = [Element(data=el) for el in data["elements"]]
+        else:
+            self["areal_density"] = AD
+            self["stopping"] = 0.01 # Dummy value
+            self["elements"] = [Element()] 
+
+    def add_element(self):
+        self["elements"].append(Element())
+    
+    def remove_element(self, index):
+        if len(self["elements"]) > 1:
+            del self["elements"][index]
+
+    def normalize_percentages(self, index_to_keep):
+        elements = self["elements"]
+        percentages = [el["percent_at"] for el in elements]
+        total = sum(percentages)
+
+        if abs(total - 100.0) < 1e-9:
+            return   # Already sums to 100
+
+        fixed_value = percentages[index_to_keep]
+        remaining = 100.0 - fixed_value
+        current_other_sum = total - fixed_value
+
+        if current_other_sum == 0:
+            elements[index_to_keep]["percent_at"] = 100.0
+        else:
+            for i, el in enumerate(elements):
+                if i != index_to_keep:
+                    el["percent_at"] = el["percent_at"] / current_other_sum * remaining
+
 
 class Target(dict):
     def __init__(self):
-        self["layers"] = [Layer()]  # Start with one default layer
+        self["layers"] = [Layer()] 
+
+    def add_layer(self):
+        self["layers"].append(Layer())  
+    
+    def remove_layer(self, index):
+        if len(self["layers"]) > 1:
+            del self["layers"][index]
+    
+    def duplicate_layer(self, index):
+        original_layer = self["layers"][index]
+        duplicated_layer = copy.deepcopy(original_layer)
+        self["layers"].append(duplicated_layer)
+
+    def move_layer_up(self, index):
+        if index > 0:
+            self["layers"][index - 1], self["layers"][index] = self["layers"][index], self["layers"][index - 1]
+    
+    def move_layer_down(self, index):
+        if index < len(self["layers"]) - 1:
+            self["layers"][index + 1], self["layers"][index] = self["layers"][index], self["layers"][index + 1]
+        
 
 # Main GUI application
 class GUI_App(tk.Tk):
@@ -49,22 +101,28 @@ class GUI_App(tk.Tk):
         self.geometry("850x900")
 
         self.style = ttk.Style(self)
-        #self.style.theme_use("default")  # Required for color customization
+
         # Define your custom styles
-        self.style.configure("Default.TButton", background="snow", foreground="black")
+        self.style.configure("Default.TButton", background="#f0f0f0", foreground="black")
         self.style.configure("Working.TButton", background="orange", foreground="black")
 
         self.target = Target()
         self.selected_layer_index = 0
         self.selected_el_index = 0
 
+        self.std_target = Target()
+        self.selected_Std_index = 0
+
         self.start_ctr = 0
         self.visible_count = 9
         self.chi_val=[]
 
-        create_widgets(self)
+        self.H_profile = None
+
+        UI_geometry.create_widgets(self)
         self.refresh_layer_list()
         self.refresh_element_list() 
+        self.refresh_Std_list() 
         self.update_chi_plot()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -116,18 +174,12 @@ class GUI_App(tk.Tk):
             self.ax0.errorbar(self.ec_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue' )
         except:
             print("No experimental excitation curve.")
+
         # Simulation curve 
         try:
             self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',linestyle='--',marker='.',color='tab:orange')  # HERE
-
-            #self.y_spl = make_smoothing_spline(self.ec_energy, self.sim_curve, lam=None)
-            #self.y_spl = UnivariateSpline(self.ec_energy, self.sim_curve, s=1)
-            #self.sim_smooth_x = np.linspace(min(self.ec_energy),max(self.ec_energy),301)
-            #self.sim_smooth_y = self.y_spl(self.sim_smooth_x)
-            #self.ax0.plot(self.sim_smooth_x,self.sim_smooth_y,label='Sim',linestyle='--',color='tab:orange')
         except :
             pass
-        #ax = self.ax0.gca()
         self.ax0.legend(loc='best')
         self.ax0.set_xlabel("Energy (keV)")
         self.ax0.set_ylabel("Yield (Count/µC)")
@@ -135,6 +187,7 @@ class GUI_App(tk.Tk):
         self.ax0.grid(alpha=0.4)
         self.canvas.draw()       
 
+    # -------------------------------------------
     # GUI updates in top frames
     def refresh_layer_list(self):
         self.layer_listbox.delete(0, tk.END)
@@ -149,6 +202,7 @@ class GUI_App(tk.Tk):
                 f"Layer {i + 1}: {layer['areal_density']} TFU ({elements_str})"
             )
         self.layer_listbox.select_set(self.selected_layer_index)
+
         # When starting the interface, filling in the textboxs:
         current_layer = self.target["layers"][self.selected_layer_index]
         self.AD_entry.delete(0, tk.END)
@@ -172,77 +226,102 @@ class GUI_App(tk.Tk):
         self.composition_percent_entry.delete(0, tk.END)
         self.composition_percent_entry.insert(0, str(element["percent_at"]))
 
+    def refresh_Std_list(self):
+        self.Std_elem_listbox.delete(0, tk.END)
+        current_layer = self.std_target["layers"][0]
+        for el in current_layer["elements"]:
+            self.Std_elem_listbox.insert(
+                tk.END,
+                f"{periodictable.elements[el['Z']].symbol} (Z={el['Z']}), {el['percent_at']:.2f} % at."
+                )
+        self.Std_elem_listbox.select_set(self.selected_Std_index)
 
+        # When starting the interface, filling in the textboxs:
+        element = current_layer["elements"][self.selected_Std_index]
+        self.Std_element_Z_entry.delete(0, tk.END)
+        self.Std_element_Z_entry.insert(0, str(element["Z"])) 
+        self.Std_composition_percent_entry.delete(0, tk.END)
+        self.Std_composition_percent_entry.insert(0, str(element["percent_at"]))
+
+    # -------------------------------------------
     # Target Config Commands
-    def add_layer(self):
-        self.target["layers"].append(Layer())
+    def on_add_layer_click(self):
+        self.target.add_layer()
         self.selected_layer_index = len(self.target["layers"]) - 1
         self.selected_el_index = 0
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def remove_layer(self):
-        if len(self.target["layers"]) > 1:
-            del self.target["layers"][self.selected_layer_index]
-            self.selected_layer_index = max(0, self.selected_layer_index - 1)
-            self.selected_el_index = 0
-            self.refresh_layer_list()
-            self.refresh_element_list()
+    def on_remove_layer_click(self):
+        self.target.remove_layer(self.selected_layer_index)
+        self.selected_layer_index = max(0, self.selected_layer_index - 1)
+        self.selected_el_index = 0
+        self.refresh_layer_list()
+        self.refresh_element_list()
 
-    def duplicate_layer(self):
-        original_layer = self.target["layers"][self.selected_layer_index]
-        duplicated_layer = copy.deepcopy(original_layer)
-        self.target["layers"].append(duplicated_layer)
+    def on_duplicate_layer_click(self):
+        self.target.duplicate_layer(self.selected_layer_index)
         self.selected_layer_index = len(self.target["layers"]) - 1
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def move_layer_up(self):
-        if self.selected_layer_index > 0:
-            i = self.selected_layer_index
-            self.target["layers"][i - 1], self.target["layers"][i] = self.target["layers"][i], self.target["layers"][i - 1]
-            self.selected_layer_index -= 1
-            self.refresh_layer_list()
-            self.refresh_element_list()
+    def on_move_layer_up_click(self):
+        self.target.move_layer_up(self.selected_layer_index)
+        self.selected_layer_index -= 1 if self.selected_layer_index > 0 else 0
+        self.refresh_layer_list()
+        self.refresh_element_list()
 
-    def move_layer_down(self):
-        if self.selected_layer_index < len(self.target["layers"]) - 1:
-            i = self.selected_layer_index
-            self.target["layers"][i + 1], self.target["layers"][i] = self.target["layers"][i], self.target["layers"][i + 1]
-            self.selected_layer_index += 1
-            self.refresh_layer_list()
-            self.refresh_element_list()
+    def on_move_layer_down_click(self):
+        self.target.move_layer_down(self.selected_layer_index)
+        self.selected_layer_index += 1 if self.selected_layer_index < len(self.target["layers"]) - 1 else 0
+        self.refresh_layer_list()
+        self.refresh_element_list()
 
 
-    def add_element(self):
+    def on_add_element_click(self,type='target'):
         try:
             #Z = int(self.element_Z_entry.get())
             #percent = float(self.composition_percent_entry.get())
-            current_layer = self.target["layers"][self.selected_layer_index]
-            current_layer["elements"].append(Element())
-            self.selected_el_index = len(current_layer["elements"]) - 1
-            self.refresh_element_list()
-            self.refresh_layer_list()
+            if type == 'target':
+                current_layer = self.target["layers"][self.selected_layer_index]
+                current_layer["elements"].append(Element())
+                self.selected_el_index = len(current_layer["elements"]) - 1
+                self.refresh_element_list()
+                self.refresh_layer_list()
+            elif type == 'std':
+                current_layer = self.std_target["layers"][0]
+                current_layer["elements"].append(Element())
+                self.selected_Std_index = len(current_layer["elements"]) - 1
+                self.refresh_Std_list()
         except ValueError:
-            pass  # You might want to show an error dialog
+            pass 
 
-    def remove_element(self):
-       selected = self.elem_listbox.curselection()
-       if selected:
-           current_layer = self.target["layers"][self.selected_layer_index]
-           if len(current_layer["elements"]) > 1:
-               del current_layer["elements"][selected[0]]
-               self.selected_el_index = max(0, self.selected_el_index - 1)
-               self.refresh_element_list()
-               self.refresh_layer_list()
+    def on_remove_element_click(self,type='target'):
+        if type == 'target':
+            current_layer = self.target["layers"][self.selected_layer_index]
+            if len(current_layer["elements"]) > 1:
+                del current_layer["elements"][self.selected_el_index]
+                self.selected_el_index = max(0, self.selected_el_index - 1)
+                self.refresh_element_list()
+                self.refresh_layer_list()
+        elif type == 'std':
+            current_layer = self.std_target["layers"][0]
+            if len(current_layer["elements"]) > 1:
+                del current_layer["elements"][self.selected_Std_index]
+                self.selected_Std_index = max(0, self.selected_Std_index - 1)
+                self.refresh_Std_list()                
 
-    def normalize_percentages(self):
+    def on_normalize_percentages_click(self,type='target'):
         """
         Adjusts the percent_at values so they sum to 100.0,
         while keeping the selected element's value unchanged.
         """
-
-        current_layer = self.target["layers"][self.selected_layer_index]
+        if type=='target':
+            current_layer = self.target["layers"][self.selected_layer_index]
+            index = self.selected_el_index
+        elif type=='std':
+            current_layer = self.std_target["layers"][0]
+            index = self.selected_Std_index
         elements = current_layer["elements"]
 
         # Extract current percentages
@@ -253,7 +332,7 @@ class GUI_App(tk.Tk):
             return   # Already sums to 100
 
         # Value to keep fixed
-        fixed_value = percentages[self.selected_el_index]
+        fixed_value = percentages[index]
 
         # Remaining sum that other elements should share
         remaining = 100.0 - fixed_value
@@ -263,21 +342,24 @@ class GUI_App(tk.Tk):
 
         if current_other_sum == 0:
             # If all others are zero, just set them proportionally equal
-            elements[self.selected_el_index]["percent_at"] = 100.0
+            elements[index]["percent_at"] = 100.0
         else:
             # Scale other elements proportionally
             for i, el in enumerate(elements):
-                if i != self.selected_el_index:
+                if i != index:
                     el["percent_at"] = el["percent_at"] / current_other_sum * remaining
+        if type=='target':
+            self.refresh_element_list()
+            self.refresh_layer_list()
+        elif type=='std':
+            self.refresh_Std_list()
 
-        self.refresh_element_list()
-        self.refresh_layer_list()
-
-
+    # -------------------------------------------
     ## Selection handlers
-
-    # Updating the layer text entries when selecting a layer in the listbox
     def on_layer_select(self, event=None):
+        """
+        Updates the layer text entries when selecting a layer in the listbox
+        """
         selected_layer_index = self.layer_listbox.curselection()
         self.selected_el_index = 0
         if selected_layer_index:
@@ -292,8 +374,10 @@ class GUI_App(tk.Tk):
             self.refresh_layer_list()
             self.refresh_element_list()
 
-    # Updating the layer listbox when values in the text entries are modified
     def on_layer_entry_update(self, event=None):
+        """
+        Updates the layer listbox when values in the text entries are modified
+        """
         selected = self.layer_listbox.curselection()
         if selected: # making sure something is selected
             try:
@@ -308,8 +392,10 @@ class GUI_App(tk.Tk):
             except ValueError:
                 print("Invalid input for areal density.")
 
-    # Updating the element text entries when selecting an element in the listbox
     def on_element_select(self, event):
+        """
+        Updates the element text entries when selecting an element in the listbox
+        """
         selected_el_index = self.elem_listbox.curselection()
         if selected_el_index:
             selected_el_index = selected_el_index[0]
@@ -325,8 +411,10 @@ class GUI_App(tk.Tk):
             self.refresh_layer_list()
             self.refresh_element_list()
 
-    # Updating the element listbox when values in the text entries are modified
-    def element_on_entry_update(self, event=None, entry_type=None):
+    def on_element_entry_update(self, event=None, entry_type=None):
+        """
+        Updates the element listbox when values in the text entries are modified
+        """
         selected = self.elem_listbox.curselection()  # Get selected element in the list
         if selected:  # Ensure something is selected
 
@@ -353,22 +441,69 @@ class GUI_App(tk.Tk):
                 print("Invalid input. Please enter a valid number.")
 
 
-    def load_file(self):
+    def on_std_element_select(self, event):
+        """
+        Updates the standard text entries when selecting an element in the listbox
+        """
+        selected = self.Std_elem_listbox.curselection()
+        if selected:
+            selected = selected[0]
+            self.selected_Std_index = selected
+            current_layer = self.std_target["layers"][0]
+            element = current_layer["elements"][selected]
+
+            self.Std_element_Z_entry.delete(0, tk.END)
+            self.Std_element_Z_entry.insert(0, str(element["Z"]))
+            self.Std_composition_percent_entry.delete(0, tk.END)
+            self.Std_composition_percent_entry.insert(0, str(element["percent_at"]))
+
+            self.refresh_Std_list()
+
+    def on_std_element_entry_update(self, event=None, entry_type=None):
+        """
+        Updates the standard listbox when one of the text entry is changed
+        """
+        selected = self.Std_elem_listbox.curselection()  # Get Std selected element in the list
+        if selected:  # Ensure something is selected
+
+            current_layer = self.std_target["layers"][0]
+            element = current_layer["elements"][self.selected_Std_index]  # Get the selected element
+
+            try:
+                if entry_type == 'Z':
+                    new_value = int(self.Std_element_Z_entry.get())  # Get the Z value as an integer
+                    if 0 < new_value < 119:  # Make sure the element exist
+                        element["Z"] = new_value  # Update the Z value
+                elif entry_type == 'percent_at':
+                    new_value = float(self.Std_composition_percent_entry.get())  # Get the percent_at value
+                    if 0 <= new_value <= 100:  # Ensure % is within valid range (0 to 100)
+                        element["percent_at"] = new_value  # Update the percent_at value
+                else:
+                    print("Unknown entry type")
+
+                # After updating, refresh the element list and layer list to reflect changes
+                self.refresh_Std_list()
+
+            except ValueError:
+                print("Invalid input. Please enter a valid number.")
+
+    # -------------------------------------------
+    def load_curve(self):
         file_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls *.csv"),
         ("All Files", "*.*")])
         if file_path:
             try:
                 # Important raw data
-                self.script_dir = os.path.dirname(os.path.abspath(__file__))
-                settings_path = os.path.join(self.script_dir, 'import_file_settings.json')
+                self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
+                settings_path = os.path.join(self.script_dir, 'settings.json')
 
                 with open(settings_path,'r', encoding="utf-8") as f:
                     filedata = json.load(f)
-                    tab_nbr = filedata["sheet_number"]
-                    header_pos = filedata["header_pos"]
-                    header0 = filedata["energy_header_name"]
-                    header1 = filedata["yield_header_name"]
-                    header2 = filedata["yErr_header_name"]
+                    tab_nbr = filedata["import_curve"]["sheet_number"]
+                    header_pos = filedata["import_curve"]["header_pos"]
+                    header0 = filedata["import_curve"]["energy_header_name"]
+                    header1 = filedata["import_curve"]["yield_header_name"]
+                    header2 = filedata["import_curve"]["yErr_header_name"]
                 df = pd.read_excel(file_path,sheet_name=tab_nbr, header=header_pos,engine='openpyxl')
                 self.ec_energy = df[header0].tolist()
                 self.ec_yield = df[header1].tolist()
@@ -391,63 +526,71 @@ class GUI_App(tk.Tk):
         else:
             print("No file selected")
     
+    def load_std(self):
+        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if file_path:
+            try:
+                with open(file_path,'r') as f:
+                    data = json.load(f)
+                self.std_target["layers"] = [Layer(data=layer) for layer in data["layers"]]
+                self.std_target["layers"][0]["areal_density"] = 1500.0
+                self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
+                print('Standard loaded')
+                #print('Standard loaded\n', self.std_target)
+                found_H = False
+                H_percent_at = None
+                for layer in self.std_target.get("layers", []):
+                    for element in layer.get("elements", []):
+                        if element.get("Z") == 1.0:
+                            found_H = True
+                            H_percent_at = element.get("percent_at", 0)
+                            break
+                        if found_H:
+                            break
+                if (not found_H) or (H_percent_at == 0):
+                    messagebox.showwarning("Loading standard","No hydrogen in the loaded standard.")
+                if len(self.std_target["layers"]) > 1:
+                    messagebox.showwarning("Loading standard", "The loaded standard contains more than one layer.\nThe first layer will be taken as standard.")
+                self.refresh_Std_list()
+            except ValueError:
+                print("Couldn't load the data.")
+
     def load_target(self):
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
         if file_path:
             try:
                 with open(file_path,'r') as f:
-                    self.target = json.load(f)
+                    data = json.load(f)
+                self.target["layers"] = [Layer(data=layer) for layer in data["layers"]]
                 print('Target loaded')
             except ValueError:
                 print("Couldn't load the data.")
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def get_std_info(self):
-        try:
-            H = float(self.std_H_entry.get())
-            notH = 100.0 - H
-            std = {
-                "elements": [
-                    {
-                        "Z": 1,
-                        "percent_at": float(H)
-                    },
-                    {
-                        "Z": int(self.std_Z_entry.get()),
-                        "percent_at": notH
-                    }
-                ]
-            }
-            std_Yield = float(self.std_Yield_entry.get())
-            std_S = mod2.calc_stopping_power(std, 6385)
-        except ValueError:
-            print("Invalid standard inputs.")
-        return H, std_S, std_Yield, std
-    
-    def std_calc(self):
-        stdH, stdS, stdY, std = self.get_std_info()
-        beamWidth = float(self.beamSD_entry.get())
-        DopplerYesNo = self.Doppler_bool.get()
-
-        self.std_target = Target()
-        self.std_target["layers"][0]["stopping"] = stdS
-        del self.std_target["layers"][0]["elements"]
-        self.std_target["layers"][0].update(std)
-        self.std_target["layers"][0]["areal_density"] = 1500.0
-
+    # -------------------------------------------
+    def std_calc(self,yield_value,beamWidth,DopplerYesNo):
+        # print('std: ', self.std_target)
+        
+        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
         xc,x,y, layers_contribution, outOfTarget = mod3.broadening(6500, self.std_target, beamWidth, DopplerYesNo, False, None)
 
         value = mod4.compute_yield(self.std_target, x, y)
-        K = stdY/value
+        K = yield_value/value
+        #print(self.std_target)
         print("K calculated: ", K)
-        return K
-        
+        return K        
 
     def start_calc(self):
-        threading.Thread(target=self.Calculation).start() # Prevents the GUI from freezing under load
+        """
+        Prevents the GUI from freezing under load
+        """
+        threading.Thread(target=self.Calculation).start() 
 
     def Calculation(self):
+        """
+        Generates a simulated excitation curve
+        """
         if not hasattr(self, "ec_energy"):
             messagebox.showerror("Run Calculation","No simulated excitation curve loaded.")
             return None
@@ -458,26 +601,47 @@ class GUI_App(tk.Tk):
         except:
             messagebox.showerror("Run Calculation","No beam width value was entered.")
             return None
+        try:
+            std_yield = float(self.std_Yield_entry.get())
+        except:
+            messagebox.showerror("Run Calculation","No standard yield value was entered.")
+            return None
         DopplerYesNo = self.Doppler_bool.get()
         SaveBroadData = self.broadSave_bool.get()
-
-        print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
+        trackTargetChange = self.TrackTargetChange_bool.get()
 
         if self.runNbr == 0:
             self.session_dir = os.path.join(self.base, "Session "+ self.timestamp)
         
-        if SaveBroadData:
-            if not os.path.isdir(self.session_dir):
-                os.mkdir(self.session_dir)
+        if SaveBroadData or trackTargetChange:
+            os.makedirs(self.session_dir, exist_ok=True)
             target_dir = os.path.join(self.session_dir, f"Run {self.runNbr}")
             os.mkdir(target_dir)
+            if trackTargetChange:
+                    self.save_json(savepath=target_dir+'/_target.json')
         self.runNbr+=1
 
         try:
             try:
-                K = self.std_calc()
+                # Checking the standard contains hydrogen
+                found_H = False
+                H_percent_at = None
+                for layer in self.std_target.get("layers", []):
+                    for element in layer.get("elements", []):
+                        if element.get("Z") == 1.0:
+                            found_H = True
+                            H_percent_at = element.get("percent_at", 0)
+                            break
+                        if found_H:
+                            break
+                if (not found_H) or (H_percent_at == 0):
+                    messagebox.showerror("Run Calculation","Standard calculation error.\n\nNo hydrogen in the standard.")
+                    return None
+
+                print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")          
+                K = self.std_calc(std_yield,beamWidth,DopplerYesNo)
             except:
-                messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards fields were correctly filled.")
+                messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards information were correctly entered.")
                 return None
 
             self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
@@ -496,7 +660,7 @@ class GUI_App(tk.Tk):
                         el["percent_at"] = el["percent_at"] / total * 100.0
                     self.refresh_layer_list()
                     self.refresh_element_list()
-                    print(f"Normalised target layer {i}")
+                    print(f"Normalised target layer {i+1}")
 
         
             self.sim_curve = []
@@ -511,6 +675,7 @@ class GUI_App(tk.Tk):
             #os.chdir(sub_dir)
 
             for energy in self.ec_energy:
+
                 if SaveBroadData:
                     sub_dir = f'datapoint{countE}'
                     savepath = os.path.join(target_dir, sub_dir)
@@ -557,22 +722,98 @@ class GUI_App(tk.Tk):
         # Unlocking the "Run Calculation" button
         self.run_button.config(text="Run calculation",style="Default.TButton", state="normal")
 
+    def _close_H_profile(self):
+        self.H_profile.destroy()
+        self.H_profile = None
+    
+    def plot_H_profile(self):
+        x,y = mod4.cH_make(self.target)
+        #print(x,y)
+
+        # --- Creating new window if it doesn't exist or was closed ---
+        if self.H_profile is None or not self.H_profile.winfo_exists():
+            self.H_profile = tk.Toplevel(self)
+            self.H_profile.title("Hydrogen Profile")
+
+            fig = Figure(figsize=(8, 5))
+            ax = fig.add_subplot()
+            canvas_H = FigureCanvasTkAgg(fig, master=self.H_profile)
+            canvas_H.draw()
+            canvas_H.get_tk_widget().pack(fill="both", expand=True)
+
+            toolbar = NavigationToolbar2Tk(canvas_H, self.H_profile)
+            toolbar.update()
+            toolbar.pack(fill='x')
+
+            self.H_profile.fig = fig
+            self.H_profile.ax = ax
+            self.H_profile.canvas = canvas_H
+
+            self.H_profile.protocol("WM_DELETE_WINDOW",self._close_H_profile)
+
+        # --- Updating the plot itself ---
+        ax = self.H_profile.ax
+        ax.clear()
+        ax.step(x,y,where='pre',linewidth=2,color='tab:red')
+        # plt.semilogy()
+        ax.set_xlabel("x (TFU)", fontsize=16)
+        ax.set_ylabel("H content (at. %)", fontsize=16)
+        ax.set_xlim(left=0)
+        ax.set_ylim(bottom=0.01)
+        ax.set_ylim(top=max(y)+5)
+        ax.grid()
+        ax.grid(which='minor')
+        highlight_ranges = list(zip(x[:-1], x[1:]))
+
+        #labels = ['Matrice C', 'Matrice Ti','','','']
+        #legend_patches = [Patch(facecolor=colors[i], alpha=0.999, label=labels[i]) 
+        #    for i in range(len(highlight_ranges))]
+
+        #ax = plt.gca()
+        colors = ["#cfcfcf" if i % 2 == 0 else "#f0f0f0" for i, _ in enumerate(highlight_ranges)]
+
+        # Changing the background of the graph
+        for i, (start, end) in enumerate(highlight_ranges):
+            ax.axvspan(start, end, color=colors[i % len(colors)], alpha=0.85)
+            pass
+        
+        # Add text labels above each step
+        disp_y_shift = 1*max(y)/100 if not max(y) == 0 else 0.04
+        for i in range(1,len(x)-1):
+            x_mid = (x[i-1] + x[i]) / 2       # midpoint of the horizontal segment
+            y_pos = y[i]                
+            ax.text(x_mid, y_pos+disp_y_shift, str(x[i]-x[max(i-1,0)])+" TFU", ha='center', va='bottom', fontsize=9)
+            ax.text(x_mid, y_pos+5*disp_y_shift, f"{y[i]:.2f} %", ha='center', va='bottom', fontsize=12)
+
+        # Adjust the last point: center relative to previous x
+        x_last = (x[-2] + x[-1]) / 2  # midpoint between last two x
+        y_last = y[-1]
+        ax.text(x_last, y_last+disp_y_shift, str(x[-1]-x[-2])+" TFU", ha='center', va='bottom', fontsize=9)
+        ax.text(x_last, y_last+5*disp_y_shift, f"{y_last:.2f} %", ha='center', va='bottom', fontsize=12)
+
+        self.H_profile.canvas.draw_idle()
 
     def Autofit():
         print("Not implemented yet")  
 
-    def save_target_json(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON files", "*.json")],title="Save JSON File")
+    def save_json(self,type='target',savepath=None):
+        if savepath is None:
+            file_path = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON files", "*.json")],title="Save JSON File")
+        else:
+            file_path = savepath
+
         # Save the dictionary to the selected file
         if file_path:
             with open(file_path, 'w') as file:
-                json.dump(self.target, file, indent=4)
+                if type == "Std":
+                    json.dump(self.std_target, file, indent=4)
+                else:
+                    json.dump(self.target, file, indent=4)
             print(f"File saved to: {file_path}")
         else:
-            print("Save canceled.")
+            return
 
     def save_sim_curve_txt(self):
-
         if not hasattr(self, "sim_curve"):
             #print("No simulated excitation curve to save.")
             messagebox.showwarning("Save simulated curve","No simulated excitation curve to save")
@@ -594,13 +835,12 @@ class GUI_App(tk.Tk):
     def on_close(self):
         exitDialogResult = messagebox.askyesnocancel("Quit", "Save the target before closing?")
         if exitDialogResult is True:
-            self.save_target_json()
+            self.save_json()
             self.quit()
         elif exitDialogResult is False:
             self.quit()
         else:
             return
-
 
 # Run app
 if __name__ == "__main__":

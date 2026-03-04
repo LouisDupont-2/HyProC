@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font
 from tkinter import filedialog,messagebox
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,NavigationToolbar2Tk
@@ -12,29 +13,20 @@ class GUI_app:
         self.root = root
         self.root.title("Broadplotter")
 
-        self.filename = None
-
-        # Style
-        #self.style = ttk.Style()
-        #self.style.theme_use('clam')  # 'clam', 'alt', 'default', 'classic' available
-
         # --- Folder Selection Button ---
         self.folder_button = ttk.Button(root, text="Select Run folder", command=self.choose_folder)
         self.folder_button.pack(pady=10)
 
         # --- Label for datapoints ---
-        self.data_label = ttk.Label(root, text="Datapoints", font=("Arial", 10, "bold"))
-        self.data_label.pack()
+        self.data_label = ttk.Label(root, text="Current datapoint:", font=("Arial", 10, "bold"))
+        self.data_label.pack(pady=(0,0))
 
-        # --- Previous / Next buttons in one row ---
-        self.button_frame = ttk.Frame(root)
-        self.button_frame.pack(pady=5)
-
-        self.prev_button = ttk.Button(self.button_frame, text="Previous", command=self.previous)
-        self.prev_button.pack(side=tk.LEFT, padx=5)
-
-        self.next_button = ttk.Button(self.button_frame, text="Next", command=self.next)
-        self.next_button.pack(side=tk.LEFT, padx=5)
+        # --- Datapoints slider ---
+        self.slider = tk.Scale(root, from_=0, to=10, length=200,variable=tk.IntVar, orient = "horizontal")
+        self.slider.pack()
+        self.slider.bind("<ButtonRelease-1>", self.on_release)
+        self.slider.bind("<Button-1>", lambda e: e.widget.focus_set())
+        self.slider.bind("<KeyRelease>", self.on_key_release)
 
         # --- Combobox under buttons ---
         self.combo_label = ttk.Label(root, text="Select Data Type:")
@@ -69,6 +61,7 @@ class GUI_app:
         self.toolbar.pack(side='bottom', fill='x')
 
         # Placeholder for current folder and index
+        self.filename = None
         self.folder_path = ""
         self.current_index = 0
         self.max_index = 0
@@ -108,7 +101,9 @@ class GUI_app:
             #        "Missing Files",
             #        f"The following files could not be found in the selected folder:\n{missing_list}"
             #    ) 
-        
+
+        self.slider.configure(to=self.max_index-1)
+
         selected_display = self.combo_var.get()
         if not selected_display == "Choose file":
             self.load_and_plot(os.path.join(self.folder_path,f"datapoint{self.current_index}",self.filename) )
@@ -122,20 +117,39 @@ class GUI_app:
             self.current_index += 1
             self.load_and_plot(os.path.join(self.folder_path,f"datapoint{self.current_index}",self.filename) )
 
+    def on_key_release(self, event):
+        """
+        Updates the plot when pressing the directional arrows on the keyboard.
+        """
+        if event.keysym in ("Left", "Right", "Up", "Down"):
+            self.on_release()
+
+    def on_release(self,event=None):
+        """
+        Updates the plot when the position of the scale/slider is changed.
+        """
+        if not self.folder_path == "":
+            val = self.slider.get()
+            if not self.filename==None:
+                self.load_and_plot(os.path.join(self.folder_path,f"datapoint{val}",self.filename))
+    
     def combobox_changed(self, event):
+        """
+        Updates the plot when a new item is selected in the combobox
+        """        
         display_name = self.combo_var.get()
         self.filename = self.data_mapping.get(display_name)
         
         # You can update your plot or logic here based on selection
         if not self.folder_path == "":
-            self.load_and_plot(os.path.join(self.folder_path,f"datapoint{self.current_index}",self.filename) )        
+            self.load_and_plot(os.path.join(self.folder_path,f"datapoint{self.slider.get()}",self.filename) )        
 
     def load_and_plot(self, filename, delimiter='\t'):
         """
         Load two-column data from a .txt file and plot it.
 
         Parameters:
-            filename (str): Path to the text file.
+            filename (str): Path to the text file containing the data.
             delimiter (str): Column separator (default is tab).
         """
 
@@ -163,7 +177,7 @@ class GUI_app:
 
         # Plotting
         self.ax.clear()
-        self.ax.set_title(f"Datapoint {self.current_index} (E = {self.get_energy_from_dat()} keV)")
+        self.ax.set_title(f"Datapoint {self.slider.get()} (E = {self.get_energy_from_dat()} keV)")
         self.ax.plot(x_vals, y_vals, marker='.', linestyle='-')
         if filename.endswith("TFU.txt"):
             self.ax.set_xlabel("x (TFU)")
@@ -180,7 +194,10 @@ class GUI_app:
         self.canvas.draw()
 
     def get_dat_filename(self):
-        dat_files = glob.glob(os.path.join(self.folder_path,f"datapoint{self.current_index}", "*.dat"))
+        """
+        Extract the name of the .dat file
+        """
+        dat_files = glob.glob(os.path.join(self.folder_path,f"datapoint{self.slider.get()}", "*.dat"))
         if len(dat_files) != 1:
             raise FileNotFoundError("Expected exactly one .dat file in the folder.")
         return os.path.basename(dat_files[0])
