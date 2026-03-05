@@ -25,7 +25,7 @@ def loss_axis(target):
     This is used to identify the layer in which the resonance is reached for a given incident energy.
 
     Parameters:
-        target (dict): A dictionary describing the target structure, including layer properties such as stopping power and areal density.
+        target (Target): Target description.
 
     Returns:
         E_loss (list): Cumulative energy loss in each layer.
@@ -43,7 +43,7 @@ def find_layer_index(E_in,E_loss):
     To do, the energy loss required to reach the resonance is compared to the the energy loss of each layer.
     
     Parameters:
-        E_in (float) : Incident energy
+        E_in (float) : Incident beam energy
         E_loss (list) : Cumulative energy loss in each layer
 
     Returns:
@@ -64,7 +64,7 @@ def get_Z(target,index,excl_H=False):
     Hydrogen can be excluded from the calculation, which may be useful for Doppler broadening.
     
     Parameters:
-        target (dict) : Dictionary representing the target structure, including layers and their elemental compositions.
+        target (Target) : Target description.
         index (int) : Index of the layer in which the resonance is reached.
         excl_H (bool, optionnal) : Exclude hydrogen from calculation if True (False by default, True should only be used for Doppler)
 
@@ -96,7 +96,7 @@ def get_A(target,index):
     Bragg's rule is used if the layer is made of multiple elements.
     
     Parameters:
-        target (dict) : Dictionary representing the target structure, including layers and their elemental compositions.
+        target (Target) : Target description.
         index (int) : Index of the layer in which the resonance is reached.
 
     Returns:
@@ -115,7 +115,7 @@ def get_density(target,index):
     Bragg's rule is used if the layer is made of multiple elements.
     
     Parameters:
-        target (dict) : Dictionary representing the target structure, including layers and their elemental compositions.
+        target (Target) : Target description.
         index (int) : Index of the layer in which the resonance is reached.
 
     Returns:
@@ -136,10 +136,10 @@ def find_in_layer_thickness(E_in, E_loss, index, target):
     then computing the thickness fraction in the specified layer corresponding to the remaining energy loss.
 
     Parameters:
-        E_in (float): Incident energy.
+        E_in (float): Incident beam energy.
         E_loss (list): Cumulative energy loss values for each layer.
         index (int): Index of the layer where the resonance occurs.
-        target (dict): Dictionary representing the target structure, including layer stopping powers.
+        target (Target): Target description.
 
     Returns:
         float: Thickness within the specified layer at which the resonance is reached.
@@ -165,12 +165,12 @@ def find_total_thickness(E_in, E_loss, index, target):
     of all preceding layers and adds the partial thickness in the resonance layer.
 
     Parameters:
-        E_in (float): Incident energy.
+        E_in (float): Incident beam energy.
         E_loss (list): Cumulative energy loss values for each layer.
         index (int): Index of the layer where the resonance occurs.
                      Special values: -2 if resonance is before the target,
                                      -1 if resonance is beyond the last layer.
-        target (dict): Dictionary representing the target structure, including layer areal densities and stopping powers.
+        target (Target): Target description.
 
     Returns:
         thickness (float): Total thickness traveled up to the resonance point within the target.
@@ -198,7 +198,7 @@ def DopplerSD(target, index):
     For other elements, delta_D is approximated by a linear fit derived from known data.
 
     Parameters:
-        target (dict): Dictionary describing the target structure.
+        target (Target): Target description.
         index (int): Index of the layer where the resonance is reached.
 
     Returns:
@@ -246,7 +246,7 @@ def stragg(E_in, E_loss, index, target):
         index (int): Index of the layer where the resonance occurs.
                      Special values: -2 if resonance is before the target,
                                      -1 if resonance is beyond the last layer.
-        target (dict): Dictionary representing the target structure, including layer areal densities and stopping powers.
+        target (Target): Target description.
 
     Returns:
         Stg (float) : Calculated straggling value according to the selected model.
@@ -311,8 +311,8 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     into a thickness profile. Optionally saves intermediate data to files.
 
     Parameters:
-        E_in (float) : Incident particle energy (keV).
-        target (dict) : Dictionary describing the target structure and layer properties.
+        E_in (float) : Incident beam energy (keV).
+        target (Target) : Target description.
         delta_B (float) : Beam energy broadening (keV).
         Doppler (bool, optional) : Whether to include Doppler broadening (default True).
         saveData (bool, optional) : Whether to save intermediate broadening data to files (default False).
@@ -456,7 +456,6 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         save(x, lorentz(x,E_R, Gamma,sigma_R), savepath+"\\"+"xsec.txt")
         save(x_conv, y_conv,savepath+"\\"+"Total_Broadening.txt")
         save(x_conv_TFU, y_conv_TFU,savepath+"\\"+"Total_Broadening_TFU.txt")
-        # os.chdir("..")"C:\HyProC\target_data_NEWtest.json"
 
     return center, x_conv_TFU, y_conv_TFU, layers_contribution, outOfTarget
 

@@ -38,14 +38,6 @@ def create_widgets(self):
         self.std_frame = ttk.LabelFrame(self.left_frame, text="Standard")
         self.std_frame.pack(fill='x', expand=False, padx=10, pady=5)
 
-        #ttk.Label(self.std_frame, text="Z:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        #self.std_Z_entry = ttk.Entry(self.std_frame, width=10)
-        #self.std_Z_entry.grid(row=0, column=1, padx=5, pady=5)
-
-        #ttk.Label(self.std_frame, text="H at. %:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
-        #self.std_H_entry = ttk.Entry(self.std_frame, width=10)
-        #self.std_H_entry.grid(row=1, column=1, padx=5, pady=5)
-
         ttk.Label(self.std_frame, text="Yield (Count/µC):").grid(row=0, column=0, padx=15, pady=5, sticky='e')
         self.std_Yield_entry = ttk.Entry(self.std_frame, width=12)
         self.std_Yield_entry.grid(row=0, column=1, padx=5, pady=(5,0) )

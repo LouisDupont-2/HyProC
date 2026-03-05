@@ -9,7 +9,7 @@ def cH_make(target):
     Creates a hydrogen step profile from the current target.
     
     Parameters:
-        target (dict): Dictionary describing the target structure and layer properties.
+        target (Target): Target description.
 
     Returns
     -------
@@ -36,7 +36,7 @@ def compute_yield(target, x_conv_TFU, y_conv_TFU):
     Calculates the gamma-yield at a given energy based on the hydrogen depth profile of the target and broadening function.
 
     Parameters:
-        target (dict) : Dictionary describing the target structure and layer properties.
+        target (Target) : Target description.
         x_conv_TFU (list of float) : Thickness values corresponding to the broadening energy profile.
         y_conv_TFU (list of float) : Probability values of the broadening profile mapped to thickness.
 

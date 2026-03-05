@@ -2,7 +2,6 @@ import os
 import subprocess
 import periodictable
 import json
-import time
 import copy
 
 energy_res = 6385.0 # keV
@@ -11,10 +10,10 @@ percentage = 0.5
 # Writing input file for SRIM
 def write_input(layer, energy, ind=0):
     """
-    Writes the SRIM input file used to calculate the stopping power of a given layer.
+    Writes the SR.IN input file that SRIM uses to calculate the stopping power of a given layer.
 
     Parameters:
-        layer (dic) : layer of a given target.
+        layer (Layer) : layer of a given target.
         energy (float) : Energy (in keV) at which the stopping power is going to be calculated.
 
     Returns
@@ -106,35 +105,32 @@ def read_stoppower():
 
     return s_elec + s_nuc
 
-# Using SRIM to calculate stopping power
 def calc_stopping_power(layer,energy,ind = 0):
     """
-    Computes the stopping power of a given layer at a certain energy
+    Computes the stopping power of a given layer at a certain energy using SRIM.
 
     Parameters:
-        layer (dic) : layer of a given target.
+        layer (Layer) : layer of a given target.
         energy (float) : Energy (in keV) at which the stopping power is going to be calculated.
 
     Returns:
         S (float) : Stopping power in keV/TFU
     """
     write_input(layer,energy,ind)
-    #os.startfile(r"SRModule.exe")
-    #time.sleep(0.1) # Leaving some time so SRIM (SR Module) can run
     subprocess.run(["SRModule.exe"], check=True)
 
     return read_stoppower()/1000 # Final units: keV/TFU
 
 def assign_stopping(target, energy):
     '''
-    Computes the stopping power of each layer based on its composition and the initial beam energy. The stopping power is considered constant, therefore a layer can be cut in smaller ones to keep that approximation correct. 
+    Computes the stopping power of each layer based on its composition and the initial beam energy. The stopping power is considered constant, therefore layers that are too thick are cut in smaller ones to keep that approximation correct. 
 
     Parameters:
-        target (dic): Target  description
+        target (Target): Target  description
         energy (float): Max energy of the excitation curve
 
     Returns:
-        target_copy (dic): Target description. Each layer has a constant stopping power (in keV/TFU)
+        target_copy (Target): Target description. Each layer has a constant stopping power (in keV/TFU)
 
     '''
     new_target = copy.deepcopy(target)

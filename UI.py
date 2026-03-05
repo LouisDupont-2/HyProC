@@ -518,11 +518,10 @@ class GUI_App(tk.Tk):
                 f"Cannot open the file:\n{file_path}\n\n"
                 "Please close it in Excel or any other program and try again.")
                 print("PermissionError: File is likely opened in another application.")
-            except ValueError:
-                print("Couldn't load the data.")
+            except ValueError as e:
+                messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
             self.update_exc_plot()
 
-            return self.ec_energy, self.ec_yield
         else:
             print("No file selected")
     
