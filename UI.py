@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox,ttk
+from networkx import config
 import periodictable
 import json
 import pandas as pd
@@ -192,11 +193,8 @@ class GUI_App(tk.Tk):
     def refresh_layer_list(self):
         self.layer_listbox.delete(0, tk.END)
         for i, layer in enumerate(self.target["layers"]):
-            # Retrieve symbols for all elements in this layer
-            data = layer["elements"]
-            element_symbols = [periodictable.elements[el["Z"]].symbol for el in data]
-            element_percent = [el["percent_at"] for el in data]
-            elements_str = ', '.join(f"{sym}{int(percent)}" for sym, percent in zip(element_symbols, element_percent))
+            data = sorted(layer["elements"], key=lambda el: el["percent_at"], reverse=True)
+            elements_str = ', '.join(f"{periodictable.elements[el['Z']].symbol}{int(el['percent_at'])}" for el in data)
             self.layer_listbox.insert(
                 tk.END,
                 f"Layer {i + 1}: {layer['areal_density']} TFU ({elements_str})"
@@ -207,7 +205,6 @@ class GUI_App(tk.Tk):
         current_layer = self.target["layers"][self.selected_layer_index]
         self.AD_entry.delete(0, tk.END)
         self.AD_entry.insert(0,str(current_layer["areal_density"])) 
-
 
     def refresh_element_list(self):
         self.elem_listbox.delete(0, tk.END)
@@ -487,72 +484,174 @@ class GUI_App(tk.Tk):
             except ValueError:
                 print("Invalid input. Please enter a valid number.")
 
-    # -------------------------------------------
+    # -------------------------------------------    
     def load_curve(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls *.csv"),
-        ("All Files", "*.*")])
-        if file_path:
-            try:
-                # Important raw data
-                self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
-                settings_path = os.path.join(self.script_dir, 'settings.json')
+        file_path = filedialog.askopenfilename(filetypes=
+                                               [("Excel Files", "*.xlsx *.xls *.csv"),
+                                                ("All Files", "*.*")])
+        if not file_path:
+            return 
+        try:
+            # Important raw data
+            self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
+            settings_path = os.path.join(self.script_dir, 'settings.json')
+            with open(settings_path,'r', encoding="utf-8") as f:
+                config = json.load(f)["import_curve"]["columns"]
 
-                with open(settings_path,'r', encoding="utf-8") as f:
-                    filedata = json.load(f)
-                    tab_nbr = filedata["import_curve"]["sheet_number"]
-                    header_pos = filedata["import_curve"]["header_pos"]
-                    header0 = filedata["import_curve"]["energy_header_name"]
-                    header1 = filedata["import_curve"]["yield_header_name"]
-                    header2 = filedata["import_curve"]["yErr_header_name"]
-                df = pd.read_excel(file_path,sheet_name=tab_nbr, header=header_pos,engine='openpyxl')
-                self.ec_energy = df[header0].tolist()
-                self.ec_yield = df[header1].tolist()
-                self.ec_yErr = df[header2].tolist()
-                # Sorting data (by energy, ascending)
-                sorted_indices = sorted(range(len(self.ec_energy)), key=lambda i: self.ec_energy[i]) 
-                self.ec_energy = [self.ec_energy[i] for i in sorted_indices]
-                self.ec_yield = [self.ec_yield[i] for i in sorted_indices]
-                self.ec_yErr = [self.ec_yErr[i] for i in sorted_indices]
-            except PermissionError:
-                messagebox.showerror("Permission Denied", 
-                f"Cannot open the file:\n{file_path}\n\n"
-                "Please close it in Excel or any other program and try again.")
-                print("PermissionError: File is likely opened in another application.")
-            except ValueError as e:
-                messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
-            self.update_exc_plot()
+            xl = pd.ExcelFile(file_path)
+            cols = list(config.values())
 
-        else:
-            print("No file selected")
+            matching_sheets = []
+            for sheet in xl.sheet_names:
+                df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
+                if df_raw.isin(cols).any(axis=None):
+                    matching_sheets.append(sheet)
+            
+            if len(matching_sheets) == 0:
+                messagebox.showerror("Loading Error", "No sheet containing the expected headers was found.")
+                return
+            elif len(matching_sheets) == 1:
+                sheet = matching_sheets[0]
+            else:
+                sheet = self.ask_sheet(file_path, matching_sheets)
+                if sheet is None:
+                    return
+
+            df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
+
+            header_row = df_raw[df_raw.apply(lambda row: all(col in row.values for col in cols), axis=1)].index[0]
+            df = pd.read_excel(file_path, sheet_name=sheet, skiprows=range(header_row), header=0, engine='openpyxl')
+            df = df.dropna(subset=[config["energy"], config["yield"], config["yield_err"]])
+
+            self.ec_energy = df[config["energy"]].tolist()
+            self.ec_yield = df[config["yield"]].tolist()
+            self.ec_yErr = df[config["yield_err"]].tolist()
+
+            # Sorting data (by energy, ascending)
+            sorted_indices = sorted(range(len(self.ec_energy)), key=lambda i: self.ec_energy[i]) 
+            self.ec_energy = [self.ec_energy[i] for i in sorted_indices]
+            self.ec_yield = [self.ec_yield[i] for i in sorted_indices]
+            self.ec_yErr = [self.ec_yErr[i] for i in sorted_indices]
+
+        except PermissionError:
+            messagebox.showerror("Permission Denied", 
+            f"Cannot open the file:\n{file_path}\n\n"
+            "Please close it in Excel or any other program and try again.")
+            print("PermissionError: File is likely opened in another application.")
+        except ValueError as e:
+            messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
+        self.update_exc_plot()
+
+    def ask_sheet(self, file_path, sheet_names):
+        """
+        If multiple sheets are found in the Excel file, ask the user which one to load.
+        """
+        popup = tk.Toplevel()
+        popup.title("Select Sheet")
+        popup.transient(self)
+        popup.grab_set()
+    
+        ttk.Label(popup, text="Select sheet to load:").pack(pady=5)
+        
+        selected = tk.StringVar(value=sheet_names[0])
+        dropdown = ttk.Combobox(popup, textvariable=selected, values=sheet_names, state="readonly")
+        dropdown.pack(pady=5)
+    
+        result = [None]
+    
+        def confirm():
+            result[0] = selected.get()
+            popup.destroy()
+
+        ttk.Button(popup, text="Confirm", command=confirm).pack(pady=5)
+
+        # Centering the popup on main window
+        popup.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
+        popup.geometry(f"250x120+{x}+{y}")
+        
+        popup.wait_window()  # Blocks until popup is closed
+        return result[0]    
     
     def load_std(self):
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
-        if file_path:
-            try:
-                with open(file_path,'r') as f:
-                    data = json.load(f)
-                self.std_target["layers"] = [Layer(data=layer) for layer in data["layers"]]
-                self.std_target["layers"][0]["areal_density"] = 1500.0
-                self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
-                print('Standard loaded')
-                #print('Standard loaded\n', self.std_target)
-                found_H = False
-                H_percent_at = None
-                for layer in self.std_target.get("layers", []):
-                    for element in layer.get("elements", []):
-                        if element.get("Z") == 1.0:
-                            found_H = True
-                            H_percent_at = element.get("percent_at", 0)
-                            break
-                        if found_H:
-                            break
-                if (not found_H) or (H_percent_at == 0):
-                    messagebox.showwarning("Loading standard","No hydrogen in the loaded standard.")
-                if len(self.std_target["layers"]) > 1:
-                    messagebox.showwarning("Loading standard", "The loaded standard contains more than one layer.\nThe first layer will be taken as standard.")
-                self.refresh_Std_list()
-            except ValueError:
-                print("Couldn't load the data.")
+        if not file_path:
+            return
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            layers = [Layer(data=layer) for layer in data["layers"]]
+
+            if len(layers) > 1:
+                index = self.ask_layer(layers)
+                if index is None:
+                    return
+                selected_layer = layers[index]
+            else:
+                selected_layer = layers[0]
+
+            self.std_target["layers"] = [selected_layer]
+            self.std_target["layers"][0]["areal_density"] = 1500.0
+            self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
+
+            # Check for hydrogen
+            found_H = False
+            H_percent_at = None
+            for element in selected_layer.get("elements", []):
+                if element.get("Z") == 1.0:
+                    found_H = True
+                    H_percent_at = element.get("percent_at", 0)
+                    break
+
+            if not found_H or H_percent_at == 0:
+                messagebox.showwarning("Loading standard", "No hydrogen in the loaded standard.")
+
+            print('Standard loaded')
+            self.refresh_Std_list()
+            self.TargetStd_notebook.select(self.Std_frame)  # Switch to the relevent tab
+
+        except ValueError as e:
+            messagebox.showerror("Loading Error", f"Couldn't load the data.\n\n{e}")
+
+    def ask_layer(self, layers):
+        """"
+        If multiple layers are found in the loaded standard, ask the user which one to use.
+        """
+        popup = tk.Toplevel()
+        popup.transient(self)
+        popup.grab_set()
+        popup.title("Select Layer")
+
+        ttk.Label(popup, text="Multiple layers found. A standard should have a uniform composition and thus only one layer.\n\nSelect which layer to keep:", wraplength=300).pack(pady=5)
+
+        def layer_label(i, layer):
+            elements = sorted(layer.get("elements", []), key=lambda e: e.get("percent_at", 0), reverse=True)
+            elements_str = ', '.join(f"{periodictable.elements[el['Z']].symbol}{int(el['percent_at'])}" for el in elements)
+            return f"Layer {i+1}: {layer['areal_density']} TFU ({elements_str})"
+
+        options = [layer_label(i, layer) for i, layer in enumerate(layers)]
+        selected = tk.StringVar(value=options[0])
+        dropdown = ttk.Combobox(popup, textvariable=selected, values=options, state="readonly", width=50)
+        dropdown.pack(pady=5)
+
+        result = [None]
+
+        def confirm():
+            result[0] = options.index(selected.get())
+            popup.destroy()
+
+        ttk.Button(popup, text="Confirm", command=confirm).pack(pady=5)
+
+        # Centering the popup on main window
+        popup.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
+        popup.geometry(f"400x150+{x}+{y}")
+
+        popup.wait_window()
+        return result[0]
 
     def load_target(self):
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
@@ -566,13 +665,19 @@ class GUI_App(tk.Tk):
                 print("Couldn't load the data.")
         self.refresh_layer_list()
         self.refresh_element_list()
+        self.TargetStd_notebook.select(self.target_frame)  # Switch to the relevent tab
 
     # -------------------------------------------
     def std_calc(self,yield_value,beamWidth,DopplerYesNo):
+        """
+        Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
+        """
         # print('std: ', self.std_target)
         
         self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
+        print("test")
         xc,x,y, layers_contribution, outOfTarget = mod3.broadening(6500, self.std_target, beamWidth, DopplerYesNo, False, None)
+
 
         value = mod4.compute_yield(self.std_target, x, y)
         K = yield_value/value
@@ -582,13 +687,13 @@ class GUI_App(tk.Tk):
 
     def start_calc(self):
         """
-        Prevents the GUI from freezing under load
+        Prevents the GUI from freezing under load.
         """
         threading.Thread(target=self.Calculation).start() 
 
     def Calculation(self):
         """
-        Generates a simulated excitation curve
+        Generates a simulated excitation curve.
         """
         if not hasattr(self, "ec_energy"):
             messagebox.showerror("Run Calculation","No simulated excitation curve loaded.")
@@ -830,7 +935,6 @@ class GUI_App(tk.Tk):
         except Exception as e:
             print(f"An error occurred: {type(e).__name__}: {e}")
     
-    # Closing
     def on_close(self):
         exitDialogResult = messagebox.askyesnocancel("Quit", "Save the target before closing?")
         if exitDialogResult is True:

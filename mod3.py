@@ -90,44 +90,6 @@ def get_Z(target,index,excl_H=False):
 
     return round(Z_mean,2)
 
-def get_A(target,index):
-    """
-    Determines the effective A (molar mass) of the layer where the resonance is reached.
-    Bragg's rule is used if the layer is made of multiple elements.
-    
-    Parameters:
-        target (Target) : Target description.
-        index (int) : Index of the layer in which the resonance is reached.
-
-    Returns:
-        A (float) : Effective molar mass of the layer in which the resonance is reached.
-    """
-    listA = []
-    for i in range(len(target["layers"][index]["elements"])):
-        listA.append((periodictable.elements[target["layers"][index]["elements"][i]["Z"]].mass, target["layers"][index]["elements"][i]["percent_at"]))
-    # Bragg's rule to find the mean atomic number Z
-    A_mean = sum(a * b/100 for a, b in listA)
-    return A_mean
-
-def get_density(target,index):
-    """
-    Determines the effective A (molar mass) of the layer where the resonance is reached.
-    Bragg's rule is used if the layer is made of multiple elements.
-    
-    Parameters:
-        target (Target) : Target description.
-        index (int) : Index of the layer in which the resonance is reached.
-
-    Returns:
-        A (float) : Effective molar mass of the layer in which the resonance is reached.
-    """
-    list = []
-    for i in range(len(target["layers"][index]["elements"])):
-        list.append((periodictable.elements[target["layers"][index]["elements"][i]["Z"]].density, target["layers"][index]["elements"][i]["percent_at"]))
-    # Bragg's rule to find the mean atomic number Z
-    mean = sum(a * b/100 for a, b in list)
-    return mean
-
 def find_in_layer_thickness(E_in, E_loss, index, target):
     """
     Calculates the thickness within the resonance layer at which the resonance occurs.
@@ -216,14 +178,14 @@ def DopplerSD(target, index):
         delta_D = -0.0218*Z+4.2421  # parameters calculated from a fit between Si & Pb
     return delta_D
 
-def Stragg_law(Z, thickness, model="Rud",A=None,density=None):
+def Stragg_law(Z, thickness, model="Rud corr"):
     """
     Calculates the standard deviation of the straggling-induced broadening using the specified theoretical model.
 
     Parameters:
         Z (int or float) : Atomic number of the material.
         thickness (float) : Thickness of the material layer (units depend on the model used).
-        model (str, optional) : The straggling model to use; either "Rud" (default) or "Bohr".
+        model (str, optional) : The straggling model to use; "Rud", "Rud corr" (default) or "Bohr".
 
     Returns:
         float : Calculated energy straggling value according to the selected model.
@@ -233,9 +195,9 @@ def Stragg_law(Z, thickness, model="Rud",A=None,density=None):
     if model == "Rud corr":
         return 2.03*Z**0.39*np.sqrt(thickness/10.0)/2.355/1.7
     if model == "Bohr":
-        return 0.395*7*np.sqrt(Z*thickness*1E+15*A/(periodictable.constants.avogadro_number/density))
+        return 1.06E-19**2*7*np.sqrt(4*np.pi*Z*thickness)
 
-def stragg(E_in, E_loss, index, target):
+def stragg(E_in, E_loss, index, target, model="Rud corr"):
     """
     Calculates the straggling based on the atomic number,
     material thickness, and selected model.
@@ -252,18 +214,13 @@ def stragg(E_in, E_loss, index, target):
         Stg (float) : Calculated straggling value according to the selected model.
     """
     Var_S = 0.0
-    model = "Rud corr"
-    if False:
-        A = get_A(target, index)
-        density = get_density(target,index)
-    else:
-        A, density = 1, 1.0
+
     if index == -1:
         for j in range(len(target["layers"])):
             Z = get_Z(target, j, excl_H=False) # Extracting elemental composition of the layer
             DeltaTFU = target["layers"][j]["areal_density"]  # Depth in the layer in which the reaction takes place 
             #print("D TFU -1", DeltaTFU)
-            delta_S = Stragg_law(Z, DeltaTFU, model, A, density)
+            delta_S = Stragg_law(Z, DeltaTFU, model)
             Var_S += delta_S**2
     else:
         for i in range(index+1):
@@ -274,7 +231,7 @@ def stragg(E_in, E_loss, index, target):
                 DeltaTFU = find_in_layer_thickness(E_in, E_loss,i, target) 
 
             #print("D TFU", DeltaTFU)
-            delta_S = Stragg_law(Z, DeltaTFU, model, A, density)
+            delta_S = Stragg_law(Z, DeltaTFU, model)
             Var_S += delta_S**2
     #print('stragg index ', index)
     #print("Straggling SD: ", np.sqrt(Var_S))

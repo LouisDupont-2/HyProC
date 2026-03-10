@@ -53,7 +53,7 @@ def create_widgets(self):
         self.options_frame1 = ttk.Frame(self.options_frame)
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=5)
         
-        ttk.Label(self.options_frame1, text="Beam spread StDev (keV):").grid(row=0, column=0, padx=(0,5), pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=0, column=0, padx=(0,5), pady=5, sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
         self.beamSD_entry.grid(row=0, column=1, padx=5, pady=(0,5),sticky='e')
 
@@ -192,7 +192,7 @@ def create_widgets(self):
         # Layer Composition
         self.Std_elem_frame = ttk.LabelFrame(self.Std_frame, text="Elements",height=150)
         #self.elem_frame.pack_propagate(False)
-        self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=10)
+        self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=5)
     
         self.Std_elem_listbox = tk.Listbox(self.Std_elem_frame,exportselection=False, height=8)
         self.Std_elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
