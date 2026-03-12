@@ -668,16 +668,12 @@ class GUI_App(tk.Tk):
         self.TargetStd_notebook.select(self.target_frame)  # Switch to the relevent tab
 
     # -------------------------------------------
-    def std_calc(self,yield_value,beamWidth,DopplerYesNo):
+    def std_calc(self,yield_value,beamWidth,DopplerYesNo,straggling_model):
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
-        """
-        # print('std: ', self.std_target)
-        
+        """        
         self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
-        print("test")
-        xc,x,y, layers_contribution, outOfTarget = mod3.broadening(6500, self.std_target, beamWidth, DopplerYesNo, False, None)
-
+        xc,x,y, layers_contribution, outOfTarget = mod3.broadening(6500, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
 
         value = mod4.compute_yield(self.std_target, x, y)
         K = yield_value/value
@@ -713,6 +709,7 @@ class GUI_App(tk.Tk):
         DopplerYesNo = self.Doppler_bool.get()
         SaveBroadData = self.broadSave_bool.get()
         trackTargetChange = self.TrackTargetChange_bool.get()
+        straggling_model = self.straggling_model_combobox.get()
 
         if self.runNbr == 0:
             self.session_dir = os.path.join(self.base, "Session "+ self.timestamp)
@@ -743,7 +740,7 @@ class GUI_App(tk.Tk):
                     return None
 
                 print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")          
-                K = self.std_calc(std_yield,beamWidth,DopplerYesNo)
+                K = self.std_calc(std_yield,beamWidth,DopplerYesNo,straggling_model)
             except:
                 messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards information were correctly entered.")
                 return None
@@ -790,7 +787,7 @@ class GUI_App(tk.Tk):
                 else:
                     savepath = None
 
-                xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.target, beamWidth, DopplerYesNo, SaveBroadData, savepath)
+                xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.target, beamWidth, DopplerYesNo, straggling_model,SaveBroadData, savepath)
 
                 # value = stdH/stdY/stdS*sim_exc_curve.compute_yield(self.target, x, y)
                 integral_yield = mod4.compute_yield(self.target, x, y)

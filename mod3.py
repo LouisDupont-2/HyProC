@@ -178,7 +178,7 @@ def DopplerSD(target, index):
         delta_D = -0.0218*Z+4.2421  # parameters calculated from a fit between Si & Pb
     return delta_D
 
-def Stragg_law(Z, thickness, model="Rud corr"):
+def Stragg_law(Z, thickness, model):
     """
     Calculates the standard deviation of the straggling-induced broadening using the specified theoretical model.
 
@@ -195,7 +195,7 @@ def Stragg_law(Z, thickness, model="Rud corr"):
     if model == "Rud corr":
         return 2.03*Z**0.39*np.sqrt(thickness/10.0)/2.355/1.7
     if model == "Bohr":
-        return 1.06E-19**2*7*np.sqrt(4*np.pi*Z*thickness)
+        return np.sqrt(0.260532*7**2*Z*thickness/1000.0) 
 
 def stragg(E_in, E_loss, index, target, model="Rud corr"):
     """
@@ -209,6 +209,7 @@ def stragg(E_in, E_loss, index, target, model="Rud corr"):
                      Special values: -2 if resonance is before the target,
                                      -1 if resonance is beyond the last layer.
         target (Target): Target description.
+        model (str, optional): The straggling model to use.
 
     Returns:
         Stg (float) : Calculated straggling value according to the selected model.
@@ -261,7 +262,7 @@ def save(vector1, vector2, filename):
             f.write(f"{v1}\t{v2}\n")
 
 
-def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None):
+def broadening(E_in, target, delta_B, Doppler=True, straggling_model="Rud corr" ,saveData=False,savepath=None):
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
@@ -272,6 +273,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
         target (Target) : Target description.
         delta_B (float) : Beam energy broadening (keV).
         Doppler (bool, optional) : Whether to include Doppler broadening (default True).
+        straggling_model (str, optional) : The straggling model.
         saveData (bool, optional) : Whether to save intermediate broadening data to files (default False).
         savepath (str, optional) : Path to directory for saving data files if saveData is True.
 
@@ -300,7 +302,7 @@ def broadening(E_in, target, delta_B, Doppler=True, saveData=False,savepath=None
     if index==-2:
         delta_S = 0
     else:
-        delta_S = stragg(E_in, E_loss, index, target)
+        delta_S = stragg(E_in, E_loss, index, target, straggling_model)
 
     SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2)
 

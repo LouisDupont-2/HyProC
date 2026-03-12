@@ -52,17 +52,22 @@ def create_widgets(self):
 
         self.options_frame1 = ttk.Frame(self.options_frame)
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=5)
+
+        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=0, column=0, padx=(0,5), pady=5, sticky='w')
+        self.straggling_model_combobox = ttk.Combobox(self.options_frame1, values=["Rud", "Rud corr", "Bohr"], state="readonly", width=10)
+        self.straggling_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='e')
+        self.straggling_model_combobox.set("Rud corr")
         
-        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=0, column=0, padx=(0,5), pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=1, column=0, padx=(0,5), pady=5, sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
-        self.beamSD_entry.grid(row=0, column=1, padx=5, pady=(0,5),sticky='e')
+        self.beamSD_entry.grid(row=1, column=1, padx=5, pady=(0,0),sticky='e')
 
         self.options_frame2 = ttk.Frame(self.options_frame)
-        self.options_frame2.pack(fill='x', expand=False, padx=5, pady=5)
+        self.options_frame2.pack(fill='x', expand=False, padx=5, pady=0)
 
         self.Doppler_bool = tk.BooleanVar(value=True)
         self.options_doppler_entry = ttk.Checkbutton(self.options_frame2,text="Doppler", variable=self.Doppler_bool)
-        self.options_doppler_entry.pack(padx=5, pady=(5,0),anchor='w')
+        self.options_doppler_entry.pack(padx=5, pady=(0,0),anchor='w')
 
         self.broadSave_bool = tk.BooleanVar(value=False)
         self.broadSave_entry = ttk.Checkbutton(self.options_frame2,text="Save broadening data", variable=self.broadSave_bool)
