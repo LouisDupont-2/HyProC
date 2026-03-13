@@ -668,7 +668,13 @@ class GUI_App(tk.Tk):
         self.TargetStd_notebook.select(self.target_frame)  # Switch to the relevent tab
 
     # -------------------------------------------
-    def std_calc(self,yield_value,beamWidth,DopplerYesNo,straggling_model):
+    def start_calc(self):
+        """
+        Prevents the GUI from freezing under load.
+        """
+        threading.Thread(target=self.Calculation).start() 
+
+    def std_calc(self, yield_value, beamWidth, DopplerYesNo, straggling_model):
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
         """        
@@ -680,12 +686,6 @@ class GUI_App(tk.Tk):
         #print(self.std_target)
         print("K calculated: ", K)
         return K        
-
-    def start_calc(self):
-        """
-        Prevents the GUI from freezing under load.
-        """
-        threading.Thread(target=self.Calculation).start() 
 
     def Calculation(self):
         """
@@ -743,6 +743,7 @@ class GUI_App(tk.Tk):
                 K = self.std_calc(std_yield,beamWidth,DopplerYesNo,straggling_model)
             except:
                 messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards information were correctly entered.")
+                raise Exception("Standard calculation failed.")
                 return None
 
             self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
@@ -763,17 +764,11 @@ class GUI_App(tk.Tk):
                     self.refresh_element_list()
                     print(f"Normalised target layer {i+1}")
 
-        
-            self.sim_curve = []
-
             size_before = len(self.target["layers"])
             self.target = mod2.assign_stopping(self.target,max(self.ec_energy))
-            #os.chdir(path)
 
+            self.sim_curve = []
             countE = 0
-            #sub_dir = f'datapoint{countE}'
-            #os.mkdir(sub_dir)
-            #os.chdir(sub_dir)
 
             for energy in self.ec_energy:
 
@@ -783,17 +778,13 @@ class GUI_App(tk.Tk):
                     os.mkdir(savepath)
                     with open(os.path.join(savepath,f'_E={energy:.1f}kev.dat'),'w') as f:
                         pass
-                    
                 else:
                     savepath = None
 
-                xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.target, beamWidth, DopplerYesNo, straggling_model,SaveBroadData, savepath)
+                xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.target, beamWidth, DopplerYesNo, straggling_model, SaveBroadData, savepath)
 
-                # value = stdH/stdY/stdS*sim_exc_curve.compute_yield(self.target, x, y)
                 integral_yield = mod4.compute_yield(self.target, x, y)
-
                 value = K*integral_yield
-
                 self.sim_curve.append(value)
                 
                 # Keeping track of the run number
@@ -805,7 +796,6 @@ class GUI_App(tk.Tk):
                 self.scroll_down()
 
             self.update_chi_plot()
-
             self.refresh_element_list()
             self.refresh_layer_list()
 

@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.signal import convolve
 import json
-import periodictable
 
 m_N = 13972.5 # keV
 m_H = 938.272 # keV
@@ -57,19 +56,20 @@ def find_layer_index(E_in,E_loss):
             return i
     return -1  # Out of target: back of target
 
-def get_Z(target,index,excl_H=False):
+def get_Z(target, index, excl_H=False, return_list=False):
     """
-    Determines the effective Z (atomic number) of the layer where the resonance is reached.
-    Bragg's rule is used if the layer is made of multiple elements.
-    Hydrogen can be excluded from the calculation, which may be useful for Doppler broadening.
+    Determines the effective atomic number of the layer where the resonance is reached through Bragg's rule
+    or extracts the list of atomic numbers and their corresponding atomic percentages for that layer.
     
     Parameters:
         target (Target) : Target description.
         index (int) : Index of the layer in which the resonance is reached.
-        excl_H (bool, optionnal) : Exclude hydrogen from calculation if True (False by default, True should only be used for Doppler)
+        excl_H (bool, optional) : Exclude hydrogen from calculation if True (False by default, True should only be used for Doppler)
+        return_list (bool, optional) : Controls the type of the output.
 
     Returns:
-        Z (float) : Effective atomic number of the layer in which the resonance is reached.
+        Z (float or list of tuple (int, float)) : Effective atomic number (Bragg's rule) of the layer in which the resonance is reached if ``return_list`` is False.
+        If ``return_list`` is True, returns a list of tuples with the atomic number and its corresponding atomic percentage of each element in the layer.
     """
     listZ = []
     for i in range(len(target["layers"][index]["elements"])):
@@ -79,12 +79,14 @@ def get_Z(target,index,excl_H=False):
     if excl_H:
         listZ = [item for item in listZ if item[0] != 1]
 
+    if return_list:
+        return listZ
+
     # Bragg's rule to find the mean atomic number Z
     Z_mean = sum(a * b/100 for a, b in listZ)
 
-    total_percent_at = sum(b for a, b in listZ)
-
     # Normalising in case the total atomic percentage isn't 100%
+    total_percent_at = sum(b for a, b in listZ)
     if not total_percent_at == 100.0:
         Z_mean = Z_mean/total_percent_at*100.0
 
@@ -199,7 +201,7 @@ def Stragg_law(Z, thickness, model):
 
 def stragg(E_in, E_loss, index, target, model="Rud corr"):
     """
-    Calculates the straggling based on the atomic number,
+    Calculates the standard deviation of the straggling-induced gaussian broadening based on the atomic number,
     material thickness, and selected model.
 
     Parameters:
@@ -207,33 +209,40 @@ def stragg(E_in, E_loss, index, target, model="Rud corr"):
         E_loss (list): Cumulative energy loss values for each layer.
         index (int): Index of the layer where the resonance occurs.
                      Special values: -2 if resonance is before the target,
-                                     -1 if resonance is beyond the last layer.
+                                     -1 if the beam doesn't lose enough energy in the target to reach the resonance.
         target (Target): Target description.
         model (str, optional): The straggling model to use.
 
     Returns:
-        Stg (float) : Calculated straggling value according to the selected model.
+        Delta_Stg (float): Straggling standard deviation according to the selected model.
     """
     Var_S = 0.0
 
     if index == -1:
         for j in range(len(target["layers"])):
-            Z = get_Z(target, j, excl_H=False) # Extracting elemental composition of the layer
+            Z = get_Z(target, j, excl_H=False, return_list=True)
             DeltaTFU = target["layers"][j]["areal_density"]  # Depth in the layer in which the reaction takes place 
             #print("D TFU -1", DeltaTFU)
-            delta_S = Stragg_law(Z, DeltaTFU, model)
-            Var_S += delta_S**2
+            for Z_el in Z:
+                print("Z stragg", Z_el) 
+                delta_S = Stragg_law(Z_el[0], DeltaTFU*Z_el[1]/100, model)
+                Var_S += delta_S**2
     else:
         for i in range(index+1):
-            Z = get_Z(target, i, excl_H=False) 
+            Z = get_Z(target, i, excl_H=False, return_list=True) 
+            print("Layer ", i, " Z: ", Z)
             if not i == max(range(index+1)):  
                 DeltaTFU = target["layers"][i]["areal_density"]  
             else: 
                 DeltaTFU = find_in_layer_thickness(E_in, E_loss,i, target) 
 
-            #print("D TFU", DeltaTFU)
-            delta_S = Stragg_law(Z, DeltaTFU, model)
-            Var_S += delta_S**2
+            for Z_el in Z:
+                print("Z stragg", Z_el)
+                try:
+                    delta_S = Stragg_law(Z_el[0], DeltaTFU*Z_el[1]/100, model)
+                    Var_S += delta_S**2
+                except Exception as e:
+                    raise ValueError(f"Error calculating straggling for Z={Z_el} and thickness={DeltaTFU}: {e}")
     #print('stragg index ', index)
     #print("Straggling SD: ", np.sqrt(Var_S))
     return np.sqrt(Var_S)
@@ -262,13 +271,14 @@ def save(vector1, vector2, filename):
             f.write(f"{v1}\t{v2}\n")
 
 
-def broadening(E_in, target, delta_B, Doppler=True, straggling_model="Rud corr" ,saveData=False,savepath=None):
+def broadening(E_in, target, delta_B, Doppler=True, straggling_model="Rud corr", saveData=False, savepath=None):
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
     into a thickness profile. Optionally saves intermediate data to files.
 
-    Parameters:
+    Parameters
+    ----------
         E_in (float) : Incident beam energy (keV).
         target (Target) : Target description.
         delta_B (float) : Beam energy broadening (keV).
@@ -291,7 +301,6 @@ def broadening(E_in, target, delta_B, Doppler=True, straggling_model="Rud corr" 
     if Doppler: 
         if index==-2:
             delta_D = DopplerSD(target, 0)
-            # delta_D = 0
         elif index==-1:
             delta_D = DopplerSD(target, len(target["layers"])-1)
         else:

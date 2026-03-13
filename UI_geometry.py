@@ -89,7 +89,7 @@ def create_widgets(self):
         self.canvas1 = FigureCanvasTkAgg(self.figure1, master=self.chi_frame)
         self.canvas1.get_tk_widget().pack(expand=True, fill='both')
 
-        self.scrollUp_button = ttk.Button(self.chi_frame, text="↑ Scroll Up ↑", command=self.scroll_up).pack(fill="x",padx=5,pady=(15,0))
+        self.scrollUp_button = ttk.Button(self.chi_frame, text="↑ Scroll Up ↑", command=self.scroll_up).pack(fill="x",padx=5,pady=(10,0))
         self.scrollDown_button =ttk.Button(self.chi_frame, text="↓ Scroll Down ↓", command=self.scroll_down).pack(fill="x",padx=5,pady=(0,0))
 
         ################################################################
@@ -197,7 +197,7 @@ def create_widgets(self):
         # Layer Composition
         self.Std_elem_frame = ttk.LabelFrame(self.Std_frame, text="Elements",height=150)
         #self.elem_frame.pack_propagate(False)
-        self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=5)
+        self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=(10,5))
     
         self.Std_elem_listbox = tk.Listbox(self.Std_elem_frame,exportselection=False, height=8)
         self.Std_elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
