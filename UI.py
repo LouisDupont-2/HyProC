@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox,ttk
-from networkx import config
 import periodictable
 import json
 import pandas as pd
@@ -8,86 +7,15 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
 import os
 from datetime import datetime
-import copy
 import threading
-import UI_geometry
 import traceback
+from typing import Sequence, Literal
 
+from class_models import Element, Layer, Target
+import UI_geometry
 import mod2
 import mod3 
-import mod4
-
-class Element(dict):
-    def __init__(self, data=None, Z: int = 14, percent_at: float = 100.0): # Default: Si, 100% at.
-        super().__init__()
-        if data is not None:
-            self.update(data)
-        else:
-            self["Z"] = Z
-            self["percent_at"] = percent_at
-
-class Layer(dict):
-    def __init__(self, data=None, AD: float = 1000.0):
-        super().__init__()
-        if data is not None:
-            self.update(data)
-            self["elements"] = [Element(data=el) for el in data["elements"]]
-        else:
-            self["areal_density"] = AD
-            self["stopping"] = 0.01 # Dummy value
-            self["elements"] = [Element()] 
-
-    def add_element(self):
-        self["elements"].append(Element())
-    
-    def remove_element(self, index):
-        if len(self["elements"]) > 1:
-            del self["elements"][index]
-
-    def normalize_percentages(self, index_to_keep):
-        elements = self["elements"]
-        percentages = [el["percent_at"] for el in elements]
-        total = sum(percentages)
-
-        if abs(total - 100.0) < 1e-9:
-            return   # Already sums to 100
-
-        fixed_value = percentages[index_to_keep]
-        remaining = 100.0 - fixed_value
-        current_other_sum = total - fixed_value
-
-        if current_other_sum == 0:
-            elements[index_to_keep]["percent_at"] = 100.0
-        else:
-            for i, el in enumerate(elements):
-                if i != index_to_keep:
-                    el["percent_at"] = el["percent_at"] / current_other_sum * remaining
-
-
-class Target(dict):
-    def __init__(self):
-        self["layers"] = [Layer()] 
-
-    def add_layer(self):
-        self["layers"].append(Layer())  
-    
-    def remove_layer(self, index):
-        if len(self["layers"]) > 1:
-            del self["layers"][index]
-    
-    def duplicate_layer(self, index):
-        original_layer = self["layers"][index]
-        duplicated_layer = copy.deepcopy(original_layer)
-        self["layers"].append(duplicated_layer)
-
-    def move_layer_up(self, index):
-        if index > 0:
-            self["layers"][index - 1], self["layers"][index] = self["layers"][index], self["layers"][index - 1]
-    
-    def move_layer_down(self, index):
-        if index < len(self["layers"]) - 1:
-            self["layers"][index + 1], self["layers"][index] = self["layers"][index], self["layers"][index + 1]
-        
+import mod4        
 
 # Main GUI application
 class GUI_App(tk.Tk):
@@ -128,7 +56,7 @@ class GUI_App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
 
-    def update_chi_plot(self):
+    def update_chi_plot(self)->None:
         self.ax1.clear()
         visible_values = self.chi_val[self.start_ctr:self.start_ctr + self.visible_count]
         y_positions = range(len(visible_values))
@@ -157,17 +85,17 @@ class GUI_App(tk.Tk):
         #self.figure1.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.05)
         self.canvas1.draw()
 
-    def scroll_up(self):
+    def scroll_up(self)->None:
         if self.start_ctr > 0:
             self.start_ctr -= 1
             self.update_chi_plot()
 
-    def scroll_down(self):
+    def scroll_down(self)->None:
         if self.start_ctr + self.visible_count < len(self.chi_val):
             self.start_ctr += 1
             self.update_chi_plot()
 
-    def update_exc_plot(self, event=None):
+    def update_exc_plot(self, event=None)->None:
         self.ax0.clear()
         # Experimental datapoints
         try:
@@ -190,7 +118,7 @@ class GUI_App(tk.Tk):
 
     # -------------------------------------------
     # GUI updates in top frames
-    def refresh_layer_list(self):
+    def refresh_layer_list(self)->None:
         self.layer_listbox.delete(0, tk.END)
         for i, layer in enumerate(self.target["layers"]):
             data = sorted(layer["elements"], key=lambda el: el["percent_at"], reverse=True)
@@ -206,7 +134,7 @@ class GUI_App(tk.Tk):
         self.AD_entry.delete(0, tk.END)
         self.AD_entry.insert(0,str(current_layer["areal_density"])) 
 
-    def refresh_element_list(self):
+    def refresh_element_list(self)->None:
         self.elem_listbox.delete(0, tk.END)
         current_layer = self.target["layers"][self.selected_layer_index]
         for el in current_layer["elements"]:
@@ -223,7 +151,7 @@ class GUI_App(tk.Tk):
         self.composition_percent_entry.delete(0, tk.END)
         self.composition_percent_entry.insert(0, str(element["percent_at"]))
 
-    def refresh_Std_list(self):
+    def refresh_Std_list(self)->None:
         self.Std_elem_listbox.delete(0, tk.END)
         current_layer = self.std_target["layers"][0]
         for el in current_layer["elements"]:
@@ -242,118 +170,82 @@ class GUI_App(tk.Tk):
 
     # -------------------------------------------
     # Target Config Commands
-    def on_add_layer_click(self):
+    def on_add_layer_click(self)->None:
         self.target.add_layer()
         self.selected_layer_index = len(self.target["layers"]) - 1
         self.selected_el_index = 0
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def on_remove_layer_click(self):
+    def on_remove_layer_click(self)->None:
         self.target.remove_layer(self.selected_layer_index)
         self.selected_layer_index = max(0, self.selected_layer_index - 1)
         self.selected_el_index = 0
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def on_duplicate_layer_click(self):
+    def on_duplicate_layer_click(self)->None:
         self.target.duplicate_layer(self.selected_layer_index)
         self.selected_layer_index = len(self.target["layers"]) - 1
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def on_move_layer_up_click(self):
+    def on_move_layer_up_click(self)->None:
         self.target.move_layer_up(self.selected_layer_index)
         self.selected_layer_index -= 1 if self.selected_layer_index > 0 else 0
         self.refresh_layer_list()
         self.refresh_element_list()
 
-    def on_move_layer_down_click(self):
+    def on_move_layer_down_click(self)->None:
         self.target.move_layer_down(self.selected_layer_index)
         self.selected_layer_index += 1 if self.selected_layer_index < len(self.target["layers"]) - 1 else 0
         self.refresh_layer_list()
         self.refresh_element_list()
 
 
-    def on_add_element_click(self,type='target'):
+    def on_add_element_click(self, target_type: Literal['target', 'std'] = 'target')->None:
         try:
-            #Z = int(self.element_Z_entry.get())
-            #percent = float(self.composition_percent_entry.get())
-            if type == 'target':
-                current_layer = self.target["layers"][self.selected_layer_index]
-                current_layer["elements"].append(Element())
-                self.selected_el_index = len(current_layer["elements"]) - 1
+            if target_type == 'target':
+                self.target["layers"][self.selected_layer_index].add_element()
+                self.selected_el_index = len(self.target["layers"][self.selected_layer_index]["elements"]) - 1
                 self.refresh_element_list()
                 self.refresh_layer_list()
-            elif type == 'std':
-                current_layer = self.std_target["layers"][0]
-                current_layer["elements"].append(Element())
-                self.selected_Std_index = len(current_layer["elements"]) - 1
+            elif target_type == 'std':
+                self.std_target["layers"][0].add_element()
+                self.selected_Std_index = len(self.std_target["layers"][0]["elements"]) - 1
                 self.refresh_Std_list()
         except ValueError:
             pass 
 
-    def on_remove_element_click(self,type='target'):
-        if type == 'target':
-            current_layer = self.target["layers"][self.selected_layer_index]
-            if len(current_layer["elements"]) > 1:
-                del current_layer["elements"][self.selected_el_index]
-                self.selected_el_index = max(0, self.selected_el_index - 1)
-                self.refresh_element_list()
-                self.refresh_layer_list()
-        elif type == 'std':
-            current_layer = self.std_target["layers"][0]
-            if len(current_layer["elements"]) > 1:
-                del current_layer["elements"][self.selected_Std_index]
-                self.selected_Std_index = max(0, self.selected_Std_index - 1)
-                self.refresh_Std_list()                
-
-    def on_normalize_percentages_click(self,type='target'):
-        """
-        Adjusts the percent_at values so they sum to 100.0,
-        while keeping the selected element's value unchanged.
-        """
-        if type=='target':
-            current_layer = self.target["layers"][self.selected_layer_index]
-            index = self.selected_el_index
-        elif type=='std':
-            current_layer = self.std_target["layers"][0]
-            index = self.selected_Std_index
-        elements = current_layer["elements"]
-
-        # Extract current percentages
-        percentages = [el["percent_at"] for el in elements]
-        total = sum(percentages)
-
-        if abs(total - 100.0) < 1e-9:
-            return   # Already sums to 100
-
-        # Value to keep fixed
-        fixed_value = percentages[index]
-
-        # Remaining sum that other elements should share
-        remaining = 100.0 - fixed_value
-
-        # Current sum of the other elements
-        current_other_sum = total - fixed_value
-
-        if current_other_sum == 0:
-            # If all others are zero, just set them proportionally equal
-            elements[index]["percent_at"] = 100.0
-        else:
-            # Scale other elements proportionally
-            for i, el in enumerate(elements):
-                if i != index:
-                    el["percent_at"] = el["percent_at"] / current_other_sum * remaining
-        if type=='target':
+    def on_remove_element_click(self, target_type: Literal['target', 'std'] = 'target')->None:
+        if target_type == 'target':
+            self.target["layers"][self.selected_layer_index].remove_element(self.selected_el_index)
+            self.selected_el_index = max(0, self.selected_el_index - 1)
             self.refresh_element_list()
             self.refresh_layer_list()
-        elif type=='std':
+        elif target_type == 'std':
+            self.std_target["layers"][0].remove_element(self.selected_Std_index)
+            self.selected_Std_index = max(0, self.selected_Std_index - 1)
+            self.refresh_Std_list()                
+
+    def on_lock_and_normalize_click(self, target_type: Literal['target', 'std'] = 'target')->None:
+        if target_type=='target':
+            current_layer = self.target["layers"][self.selected_layer_index]
+            index = self.selected_el_index
+        elif target_type=='std':
+            current_layer = self.std_target["layers"][0]
+            index = self.selected_Std_index
+        current_layer.lock_and_normalize(index)
+
+        if target_type=='target':
+            self.refresh_element_list()
+            self.refresh_layer_list()
+        elif target_type=='std':
             self.refresh_Std_list()
 
     # -------------------------------------------
     ## Selection handlers
-    def on_layer_select(self, event=None):
+    def on_layer_select(self, event=None)->None:
         """
         Updates the layer text entries when selecting a layer in the listbox
         """
@@ -371,7 +263,7 @@ class GUI_App(tk.Tk):
             self.refresh_layer_list()
             self.refresh_element_list()
 
-    def on_layer_entry_update(self, event=None):
+    def on_layer_entry_update(self, event=None)->None:
         """
         Updates the layer listbox when values in the text entries are modified
         """
@@ -389,7 +281,7 @@ class GUI_App(tk.Tk):
             except ValueError:
                 print("Invalid input for areal density.")
 
-    def on_element_select(self, event):
+    def on_element_select(self, event)->None:
         """
         Updates the element text entries when selecting an element in the listbox
         """
@@ -408,28 +300,26 @@ class GUI_App(tk.Tk):
             self.refresh_layer_list()
             self.refresh_element_list()
 
-    def on_element_entry_update(self, event=None, entry_type=None):
+    def on_element_entry_update(self, event=None, entry_type:Literal['Z', 'percent_at']=None)->None:
         """
         Updates the element listbox when values in the text entries are modified
         """
         selected = self.elem_listbox.curselection()  # Get selected element in the list
         if selected:  # Ensure something is selected
-
             current_layer = self.target["layers"][self.selected_layer_index]
-            element = current_layer["elements"][self.selected_el_index]  # Get the selected element
+            element = current_layer["elements"][self.selected_el_index]  
 
             try:
                 if entry_type == 'Z':
-                    new_value = int(self.element_Z_entry.get())  # Get the Z value as an integer
+                    new_value = int(self.element_Z_entry.get())
                     if 0 < new_value < 119:  # Make sure the element exist
-                        element["Z"] = new_value  # Update the Z value
+                        element["Z"] = new_value  
                 elif entry_type == 'percent_at':
-                    new_value = float(self.composition_percent_entry.get())  # Get the percent_at value
-                    if 0 <= new_value <= 100:  # Ensure % is within valid range (0 to 100)
-                        element["percent_at"] = new_value  # Update the percent_at value
+                    new_value = float(self.composition_percent_entry.get()) 
+                    if 0 <= new_value <= 100:  
+                        element["percent_at"] = new_value  
                 else:
                     print("Unknown entry type")
-                # After updating, refresh the element list and layer list to reflect changes
 
                 self.refresh_element_list()
                 self.refresh_layer_list()
@@ -438,7 +328,7 @@ class GUI_App(tk.Tk):
                 print("Invalid input. Please enter a valid number.")
 
 
-    def on_std_element_select(self, event):
+    def on_std_element_select(self, event)->None:
         """
         Updates the standard text entries when selecting an element in the listbox
         """
@@ -456,7 +346,7 @@ class GUI_App(tk.Tk):
 
             self.refresh_Std_list()
 
-    def on_std_element_entry_update(self, event=None, entry_type=None):
+    def on_std_element_entry_update(self, event=None, entry_type:Literal['Z', 'percent_at']=None)->None:
         """
         Updates the standard listbox when one of the text entry is changed
         """
@@ -464,28 +354,27 @@ class GUI_App(tk.Tk):
         if selected:  # Ensure something is selected
 
             current_layer = self.std_target["layers"][0]
-            element = current_layer["elements"][self.selected_Std_index]  # Get the selected element
+            element = current_layer["elements"][self.selected_Std_index]  
 
             try:
                 if entry_type == 'Z':
-                    new_value = int(self.Std_element_Z_entry.get())  # Get the Z value as an integer
+                    new_value = int(self.Std_element_Z_entry.get())  
                     if 0 < new_value < 119:  # Make sure the element exist
-                        element["Z"] = new_value  # Update the Z value
+                        element["Z"] = new_value  
                 elif entry_type == 'percent_at':
-                    new_value = float(self.Std_composition_percent_entry.get())  # Get the percent_at value
-                    if 0 <= new_value <= 100:  # Ensure % is within valid range (0 to 100)
-                        element["percent_at"] = new_value  # Update the percent_at value
+                    new_value = float(self.Std_composition_percent_entry.get()) 
+                    if 0 <= new_value <= 100:  
+                        element["percent_at"] = new_value  
                 else:
                     print("Unknown entry type")
 
-                # After updating, refresh the element list and layer list to reflect changes
                 self.refresh_Std_list()
 
             except ValueError:
                 print("Invalid input. Please enter a valid number.")
 
     # -------------------------------------------    
-    def load_curve(self):
+    def load_curve(self)->None:
         file_path = filedialog.askopenfilename(filetypes=
                                                [("Excel Files", "*.xlsx *.xls *.csv"),
                                                 ("All Files", "*.*")])
@@ -542,7 +431,7 @@ class GUI_App(tk.Tk):
             messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
         self.update_exc_plot()
 
-    def ask_sheet(self, file_path, sheet_names):
+    def ask_sheet(self, file_path:str, sheet_names:list)->str:
         """
         If multiple sheets are found in the Excel file, ask the user which one to load.
         """
@@ -574,7 +463,7 @@ class GUI_App(tk.Tk):
         popup.wait_window()  # Blocks until popup is closed
         return result[0]    
     
-    def load_std(self):
+    def load_std(self)->None:
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
         if not file_path:
             return
@@ -615,7 +504,7 @@ class GUI_App(tk.Tk):
         except ValueError as e:
             messagebox.showerror("Loading Error", f"Couldn't load the data.\n\n{e}")
 
-    def ask_layer(self, layers):
+    def ask_layer(self, layers:list)->int:
         """"
         If multiple layers are found in the loaded standard, ask the user which one to use.
         """
@@ -653,7 +542,7 @@ class GUI_App(tk.Tk):
         popup.wait_window()
         return result[0]
 
-    def load_target(self):
+    def load_target(self)->None:
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
         if file_path:
             try:
@@ -668,13 +557,13 @@ class GUI_App(tk.Tk):
         self.TargetStd_notebook.select(self.target_frame)  # Switch to the relevent tab
 
     # -------------------------------------------
-    def start_calc(self):
+    def start_calc(self)->None:
         """
         Prevents the GUI from freezing under load.
         """
         threading.Thread(target=self.Calculation).start() 
 
-    def std_calc(self, yield_value, beamWidth, DopplerYesNo, straggling_model):
+    def std_calc(self, yield_value:float, beamWidth:float, DopplerYesNo:bool, straggling_model:str)->float:
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
         """        
@@ -687,25 +576,25 @@ class GUI_App(tk.Tk):
         print("K calculated: ", K)
         return K        
 
-    def Calculation(self):
+    def Calculation(self)->None:
         """
         Generates a simulated excitation curve.
         """
         if not hasattr(self, "ec_energy"):
             messagebox.showerror("Run Calculation","No simulated excitation curve loaded.")
-            return None
+            return
         
         # Retrieving info from GUI first 
         try:
             beamWidth = float(self.beamSD_entry.get())
         except:
             messagebox.showerror("Run Calculation","No beam width value was entered.")
-            return None
+            return 
         try:
             std_yield = float(self.std_Yield_entry.get())
         except:
             messagebox.showerror("Run Calculation","No standard yield value was entered.")
-            return None
+            return
         DopplerYesNo = self.Doppler_bool.get()
         SaveBroadData = self.broadSave_bool.get()
         trackTargetChange = self.TrackTargetChange_bool.get()
@@ -713,7 +602,6 @@ class GUI_App(tk.Tk):
 
         if self.runNbr == 0:
             self.session_dir = os.path.join(self.base, "Session "+ self.timestamp)
-        
         if SaveBroadData or trackTargetChange:
             os.makedirs(self.session_dir, exist_ok=True)
             target_dir = os.path.join(self.session_dir, f"Run {self.runNbr}")
@@ -737,38 +625,29 @@ class GUI_App(tk.Tk):
                             break
                 if (not found_H) or (H_percent_at == 0):
                     messagebox.showerror("Run Calculation","Standard calculation error.\n\nNo hydrogen in the standard.")
-                    return None
+                    return 
 
-                print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")          
-                K = self.std_calc(std_yield,beamWidth,DopplerYesNo,straggling_model)
+                print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")  
+                if self.std_target["layers"][0].normalize():
+                    print("Standard layer normalised.")
+                K = self.std_calc(std_yield, beamWidth, DopplerYesNo, straggling_model)
             except:
                 messagebox.showerror("Run Calculation","Standard calculation error.\n\nMake sure all the standards information were correctly entered.")
                 raise Exception("Standard calculation failed.")
-                return None
+                return 
 
             self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
 
             # Normalising target
-            for i, layer_i in enumerate(self.target["layers"]):
-                elements = layer_i["elements"]
-
-                # Extract current percentages
-                percentages = [el["percent_at"] for el in elements]
-                total = sum(percentages)
-                
-                if not total == 100.0:
-                # Scale everything proportionally
-                    for el in elements:
-                        el["percent_at"] = el["percent_at"] / total * 100.0
-                    self.refresh_layer_list()
-                    self.refresh_element_list()
-                    print(f"Normalised target layer {i+1}")
-
-            size_before = len(self.target["layers"])
-            self.target = mod2.assign_stopping(self.target,max(self.ec_energy))
+            self.target.normalize_all_layers()
+            self.refresh_layer_list()
+            self.refresh_element_list()
 
             self.sim_curve = []
             countE = 0
+
+            size_before = len(self.target["layers"])
+            self.target = mod2.assign_stopping(self.target,max(self.ec_energy))
 
             for energy in self.ec_energy:
 
@@ -813,17 +692,22 @@ class GUI_App(tk.Tk):
         # Unlocking the "Run Calculation" button
         self.run_button.config(text="Run calculation",style="Default.TButton", state="normal")
 
-    def _close_H_profile(self):
+    def _close_H_profile(self)->None:
         self.H_profile.destroy()
         self.H_profile = None
     
-    def plot_H_profile(self):
+    def plot_H_profile(self)->None:
         x,y = mod4.cH_make(self.target)
-        #print(x,y)
+
+        # --- If the window already exists, bring it to the front ---
+        if self.H_profile is not None and self.H_profile.winfo_exists():
+            self.H_profile.lift()
 
         # --- Creating new window if it doesn't exist or was closed ---
-        if self.H_profile is None or not self.H_profile.winfo_exists():
+        else:
             self.H_profile = tk.Toplevel(self)
+            #self.H_profile.transient(self)
+            #self.H_profile.grab_set()
             self.H_profile.title("Hydrogen Profile")
 
             fig = Figure(figsize=(8, 5))
@@ -839,6 +723,11 @@ class GUI_App(tk.Tk):
             self.H_profile.fig = fig
             self.H_profile.ax = ax
             self.H_profile.canvas = canvas_H
+
+            self.H_profile.update_idletasks()
+            x_win = self.winfo_x() + (self.winfo_width() // 2) - (self.H_profile.winfo_width() // 2)
+            y_win = self.winfo_y() + (self.winfo_height() // 2) - (self.H_profile.winfo_height() // 2)
+            self.H_profile.geometry(f"800x600+{x_win}+{y_win}")
 
             self.H_profile.protocol("WM_DELETE_WINDOW",self._close_H_profile)
 
@@ -884,53 +773,46 @@ class GUI_App(tk.Tk):
 
         self.H_profile.canvas.draw_idle()
 
-    def Autofit():
+    def Autofit(self)->None:
         print("Not implemented yet")  
 
-    def save_json(self,type='target',savepath=None):
-        if savepath is None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON files", "*.json")],title="Save JSON File")
-        else:
-            file_path = savepath
-
-        # Save the dictionary to the selected file
+    def save_json(self, target_type: Literal['target', 'std'] = 'target', savepath: str | None = None) -> None:
+        file_path = savepath or filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json")],
+            title="Save JSON File"
+        )
         if file_path:
             with open(file_path, 'w') as file:
-                if type == "Std":
-                    json.dump(self.std_target, file, indent=4)
-                else:
-                    json.dump(self.target, file, indent=4)
+                json.dump(self.std_target if target_type == "std" else self.target, file, indent=4)
             print(f"File saved to: {file_path}")
-        else:
-            return
 
-    def save_sim_curve_txt(self):
+    def save_sim_curve_txt(self)->None:
         if not hasattr(self, "sim_curve"):
-            #print("No simulated excitation curve to save.")
-            messagebox.showwarning("Save simulated curve","No simulated excitation curve to save")
-            return None
+            messagebox.showwarning("Save simulated curve", "No simulated excitation curve to save")
+            return
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("TXT file", "*.txt")],
+            title="Save Simulated curve"
+        )
+        if not file_path:
+            return
         try:
-            file_path = filedialog.asksaveasfilename(defaultextension=".txt",filetypes=[("TXT file", "*.txt")],title="Save Simulated curve")
-            # Save the dictionary to the selected file
-            if file_path:
-                with open(file_path, 'w') as file:
-                    for v1, v2 in zip(self.ec_energy, self.sim_curve):
-                        file.write(f"{v1:.3f}\t{v2:.1f}\n")
-                    print(f"File saved to: {file_path}")
-            else:
-                print("Save canceled.")
+            with open(file_path, 'w') as file:
+                for v1, v2 in zip(self.ec_energy, self.sim_curve):
+                    file.write(f"{v1:.3f}\t{v2:.1f}\n")
+            print(f"File saved to: {file_path}")
         except Exception as e:
             print(f"An error occurred: {type(e).__name__}: {e}")
-    
-    def on_close(self):
+
+    def on_close(self)->None:
         exitDialogResult = messagebox.askyesnocancel("Quit", "Save the target before closing?")
-        if exitDialogResult is True:
-            self.save_json()
-            self.quit()
-        elif exitDialogResult is False:
-            self.quit()
-        else:
+        if exitDialogResult is None:
             return
+        if exitDialogResult:
+            self.save_json()
+        self.quit()
 
 # Run app
 if __name__ == "__main__":

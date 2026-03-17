@@ -43,7 +43,7 @@ def create_widgets(self):
         self.std_Yield_entry.grid(row=0, column=1, padx=5, pady=(5,0) )
 
         self.load_target_button = ttk.Button(self.std_frame, text='Load',command=self.load_std).grid(row=1, column=0, padx=5, pady=5,sticky='we')
-        self.save_target_button = ttk.Button(self.std_frame, text='Save',command=lambda: self.save_json(type='Std')).grid(row=1, column=1, padx=5, pady=5,sticky='we')
+        self.save_target_button = ttk.Button(self.std_frame, text='Save',command=lambda: self.save_json(target_type='std')).grid(row=1, column=1, padx=5, pady=5,sticky='we')
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Options checkbox
@@ -190,7 +190,7 @@ def create_widgets(self):
         self.remove_element_button = ttk.Button(self.right_button_frame, text="Remove Element", width=30, command=self.on_remove_element_click)
         self.remove_element_button.grid(row=1, padx=5)
 
-        self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.on_normalize_percentages_click)
+        self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.on_lock_and_normalize_click)
         self.norm_element_button.grid(row=2, padx=5, pady=(5,0))
 
         # *=*=*=*=*=*=*=*=*=*=*=*=*=*=* Standard *=*=*=*=*=*=*=*=*=*=*=*=*=*=*
@@ -223,13 +223,13 @@ def create_widgets(self):
         self.Std_right_button_frame = ttk.Frame(self.Std_frame)
         self.Std_right_button_frame.pack(anchor='center', padx=10, pady=5)
 
-        self.Std_add_element_button = ttk.Button(self.Std_right_button_frame, text="Add Element", width=30, command=lambda: self.on_add_element_click(type='std'))
+        self.Std_add_element_button = ttk.Button(self.Std_right_button_frame, text="Add Element", width=30, command=lambda: self.on_add_element_click(target_type='std'))
         self.Std_add_element_button.grid(row=0, padx=5)
 
-        self.Std_remove_element_button = ttk.Button(self.Std_right_button_frame, text="Remove Element", width=30, command=lambda: self.on_remove_element_click(type='std'))
+        self.Std_remove_element_button = ttk.Button(self.Std_right_button_frame, text="Remove Element", width=30, command=lambda: self.on_remove_element_click(target_type='std'))
         self.Std_remove_element_button.grid(row=1, padx=5)
 
-        self.Std_norm_element_button = ttk.Button(self.Std_right_button_frame, text="Isolate & Normalize", width=30, command=lambda: self.on_normalize_percentages_click(type='std'))
+        self.Std_norm_element_button = ttk.Button(self.Std_right_button_frame, text="Isolate & Normalize", width=30, command=lambda: self.on_lock_and_normalize_click(target_type='std'))
         self.Std_norm_element_button.grid(row=2, padx=5, pady=(5,0))
 
         #################################

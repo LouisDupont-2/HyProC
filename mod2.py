@@ -4,11 +4,13 @@ import periodictable
 import json
 import copy
 
+from class_models import Element, Layer, Target
+
 energy_res = 6385.0 # keV
 percentage = 0.5
 
 # Writing input file for SRIM
-def write_input(layer, energy, ind=0):
+def write_input(layer: Layer, energy: float)->None:
     """
     Writes the SR.IN input file that SRIM uses to calculate the stopping power of a given layer.
 
@@ -67,7 +69,7 @@ def write_input(layer, energy, ind=0):
         file.write(f"{energy}")
 
 # Reading output file from SRIM
-def read_stoppower():
+def read_stoppower()-> float:
     """
     Reads the output file from SRIM.
 
@@ -105,7 +107,7 @@ def read_stoppower():
 
     return s_elec + s_nuc
 
-def calc_stopping_power(layer,energy,ind = 0):
+def calc_stopping_power(layer: Layer, energy: float) -> float:
     """
     Computes the stopping power of a given layer at a certain energy using SRIM.
 
@@ -116,12 +118,12 @@ def calc_stopping_power(layer,energy,ind = 0):
     Returns:
         S (float) : Stopping power in keV/TFU
     """
-    write_input(layer,energy,ind)
+    write_input(layer, energy)
     subprocess.run(["SRModule.exe"], check=True)
 
     return read_stoppower()/1000 # Final units: keV/TFU
 
-def assign_stopping(target, energy):
+def assign_stopping(target: Target, energy: float) -> Target:
     '''
     Computes the stopping power of each layer based on its composition and the initial beam energy. The stopping power is considered constant, therefore layers that are too thick are cut in smaller ones to keep that approximation correct. 
 
@@ -137,9 +139,9 @@ def assign_stopping(target, energy):
     new_target["layers"].clear()
     partDidntEnterLayer = False
     index = 0
-    list=[]
+    daughterLayers_by_layer = []
 
-    for i in range(len(target["layers"])):
+    for i, layer in enumerate(target["layers"]):
         ctr = 1
 
         # Dummy values to make sure the program enters the while loop
@@ -159,25 +161,25 @@ def assign_stopping(target, energy):
             if E_in <= 0:
                 partDidntEnterLayer = True
                 break
-            S_in = calc_stopping_power(target["layers"][i],E_in)
+            S_in = calc_stopping_power(layer,E_in)
             print(f"IN - Energy: {E_in:.3f} & Stopping: {S_in:.6f}")
-            E_out = E_in - target["layers"][i]["areal_density"] * S_in
+            E_out = E_in - layer["areal_density"] * S_in
 
             if E_out < 0:
                 E_out = 0
                 S_out = 0.000001
             else:
-                S_out = calc_stopping_power(target["layers"][i],E_out)
+                S_out = calc_stopping_power(layer, E_out)
             print(f'OUT - Energy: {E_out:.3f} & Stopping: {S_out:.6f}')
 
             # Checking for variation between the stopping powers on entry VS on exit
             if abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0:
                 print("Layer too thick, cutting")
-                target["layers"][i]["areal_density"] /= 2
+                layer["areal_density"] /= 2
                 ctr+=1
             else:
-                target["layers"][i]["stopping"] = (S_in + S_out) / 2 # No segmentation required, assigning stopping power (mid layer approx)
-                print(f'Final Stopping: {target["layers"][i]["stopping"]} keV/TFU')
+                layer["stopping"] = (S_in + S_out) / 2 # No segmentation required, assigning stopping power (mid layer approx)
+                print(f'Final Stopping: {layer["stopping"]} keV/TFU')
 
         #NbrDaughter = 2**ctr
         if ctr ==2:
@@ -185,7 +187,7 @@ def assign_stopping(target, energy):
         else:
             Count = max(1,(ctr-1)**2)
 
-        list.append(Count) # Count: Number of daughter layers from parent layer
+        daughterLayers_by_layer.append(Count) # Count: Number of daughter layers from parent layer
         index += ctr
 
         # Segmentation sequence
@@ -194,7 +196,7 @@ def assign_stopping(target, energy):
 
         # Assigning stopping powers to the segmented target
         for k in range(Count):
-            nbr = sum(list[j] for j in range(i))
+            nbr = sum(daughterLayers_by_layer[:i])
             if k == 0:
                 if partDidntEnterLayer:
                     new_target["layers"][index]["stopping"] = 0

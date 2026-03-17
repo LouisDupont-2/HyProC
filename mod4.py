@@ -2,9 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import json
+from typing import Sequence, Literal
+from numpy.typing import NDArray
+
+from class_models import Element, Layer, Target
 
 # Creating the hydrogen profile from the target
-def cH_make(target):
+def cH_make(target: Target)-> tuple[list[float], list[float]]:
     """
     Creates a hydrogen step profile from the current target.
     
@@ -19,8 +23,8 @@ def cH_make(target):
     """
     cH_x = np.zeros(len(target["layers"])+1)
     value = 0.0
-    for i in range(len(target["layers"])):
-        value += target["layers"][i]["areal_density"]
+    for i, layer in enumerate(target["layers"]):
+        value += layer["areal_density"]
         cH_x[i+1] = value
     cH_y = []
     for layer in target["layers"]:
@@ -31,7 +35,7 @@ def cH_make(target):
     return cH_x, cH_y
 
 # Calculating yield
-def compute_yield(target, x_conv_TFU, y_conv_TFU):
+def compute_yield(target: Target, x_conv_TFU: NDArray[np.float64], y_conv_TFU: NDArray[np.float64])-> float:
     """
     Calculates the gamma-yield at a given energy based on the hydrogen depth profile of the target and broadening function.
 
@@ -67,7 +71,7 @@ def compute_yield(target, x_conv_TFU, y_conv_TFU):
 
     return integral
 
-def chi_squared_test(y_exp, y_sim):
+def chi_squared_test(y_exp: list[float], y_sim: list[float])-> float:
     """
     Chi-squared test between the experimental and simulated excitation curves
     
@@ -83,7 +87,6 @@ def chi_squared_test(y_exp, y_sim):
 
 
 if __name__ == "__main__":
-    
     with open(r"D:\loudupon\OneDrive - Université de Namur\Documents\Mémoire (MA2)\Code\FRIA target 2.json",'r') as f:
         target_input = json.load(f)
         print('Loaded')
