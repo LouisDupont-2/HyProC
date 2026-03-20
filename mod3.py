@@ -353,10 +353,9 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     mean_conv = np.trapezoid(x_conv * y_conv, x_conv)  # Center of the resulting Voigt profile
     x_conv = x_conv - (mean_conv - mean_y1)  # Centering the x axis on the resonance energy
 
-    deltaE_in = E_in - E_R
+    deltaE_in = E_in - E_R # Energy loss to get to the resonance
     center = find_total_thickness(E_in, E_loss, index, target)  # Thickness at which the energy resonance is reached for a given incident energy
     # print("c ",center)
-      # Energy loss to get to the resonance
 
     # Changing the x-axis from energy (keV) to thickness (TFU)
     x_conv_TFU = np.zeros(len(x_conv))

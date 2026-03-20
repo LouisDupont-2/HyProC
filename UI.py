@@ -17,6 +17,16 @@ import mod2
 import mod3 
 import mod4        
 
+def count_datapoints(df_raw: pd.DataFrame, header_row: int) -> int:
+    # Count consecutive non-empty rows after the header
+    count = 0
+    for i in range(header_row + 1, len(df_raw)):
+        row = df_raw.iloc[i]
+        if row.isnull().all():
+            break
+        count += 1
+    return count  
+
 # Main GUI application
 class GUI_App(tk.Tk):
     def __init__(self):
@@ -97,16 +107,10 @@ class GUI_App(tk.Tk):
 
     def update_exc_plot(self, event=None)->None:
         self.ax0.clear()
-        # Experimental datapoints
         try:
-            self.ax0.scatter(self.ec_energy, self.ec_yield, label='Exp',marker='.',color='tab:blue')   # HERE
+            self.ax0.scatter(self.ec_energy, self.ec_yield, label='Exp',marker='.',color='tab:blue')
             self.ax0.errorbar(self.ec_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue' )
-        except:
-            print("No experimental excitation curve.")
-
-        # Simulation curve 
-        try:
-            self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',linestyle='--',marker='.',color='tab:orange')  # HERE
+            self.ax0.plot(self.ec_energy,self.sim_curve,label='Sim',linestyle='--',marker='.',color='tab:orange')
         except :
             pass
         self.ax0.legend(loc='best')
@@ -373,9 +377,9 @@ class GUI_App(tk.Tk):
             except ValueError:
                 print("Invalid input. Please enter a valid number.")
 
-    # -------------------------------------------    
+    # -------------------------------------------  
     def load_curve(self)->None:
-        file_path = filedialog.askopenfilename(filetypes=
+        file_path = filedialog.askopenfilename(title="Load Excitation Curve", filetypes=
                                                [("Excel Files", "*.xlsx *.xls *.csv"),
                                                 ("All Files", "*.*")])
         if not file_path:
@@ -384,12 +388,14 @@ class GUI_App(tk.Tk):
             # Important raw data
             self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
             settings_path = os.path.join(self.script_dir, 'settings.json')
+
             with open(settings_path,'r', encoding="utf-8") as f:
                 config = json.load(f)["import_curve"]["columns"]
 
             xl = pd.ExcelFile(file_path)
             cols = list(config.values())
 
+            # Checking in how many sheets the headers are present, and asking the user which one to load if multiple are found
             matching_sheets = []
             for sheet in xl.sheet_names:
                 df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
@@ -406,11 +412,24 @@ class GUI_App(tk.Tk):
                 if sheet is None:
                     return
 
+            # Loading data
             df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
+            header_rows = df_raw[df_raw.apply(lambda row: all(col in row.values for col in cols), axis=1)].index.tolist()
+            if len(header_rows) == 0:
+                messagebox.showerror("Loading Error", "No table containing the expected headers was found.")
+                return
+            elif len(header_rows) == 1:
+                header_row = header_rows[0]
+                ndata = count_datapoints(df_raw, header_row)
+            else:
+                result = self.ask_table(df_raw, header_rows, cols)
+                if result is None:
+                    return
+                header_row, ndata = result           
 
-            header_row = df_raw[df_raw.apply(lambda row: all(col in row.values for col in cols), axis=1)].index[0]
-            df = pd.read_excel(file_path, sheet_name=sheet, skiprows=range(header_row), header=0, engine='openpyxl')
+            df = pd.read_excel(file_path, sheet_name=sheet, skiprows=range(header_row), header=0, nrows=ndata, engine='openpyxl')
             df = df.dropna(subset=[config["energy"], config["yield"], config["yield_err"]])
+            df = df[pd.to_numeric(df[config["energy"]], errors='coerce').notna()]
 
             self.ec_energy = df[config["energy"]].tolist()
             self.ec_yield = df[config["yield"]].tolist()
@@ -433,7 +452,7 @@ class GUI_App(tk.Tk):
 
     def ask_sheet(self, file_path:str, sheet_names:list)->str:
         """
-        If multiple sheets are found in the Excel file, ask the user which one to load.
+        If multiple sheets are found in the loaded Excel file, ask the user which one to load.
         """
         popup = tk.Toplevel()
         popup.title("Select Sheet")
@@ -461,10 +480,42 @@ class GUI_App(tk.Tk):
         popup.geometry(f"250x120+{x}+{y}")
         
         popup.wait_window()  # Blocks until popup is closed
-        return result[0]    
+        return result[0]
+
+    def ask_table(self, df_raw: pd.DataFrame, header_rows: list[int], cols: list[str])-> tuple[int, int]:
+        popup = tk.Toplevel()
+        popup.transient(self)
+        popup.grab_set()
+        popup.title("Select Table")
+
+        ttk.Label(popup, text="Multiple tables found, select one:").pack(pady=5)
+
+        options = [f"Table {i+1} (header on row {row+1}, {count_datapoints(df_raw, row)} datapoints)"
+                   for i, row in enumerate(header_rows)]
+
+        selected = tk.StringVar(value=options[0])
+        dropdown = ttk.Combobox(popup, textvariable=selected, values=options, state="readonly", width=50)
+        dropdown.pack(pady=5)
+
+        result = [None]
+
+        def confirm():
+            idx = options.index(selected.get())
+            result[0] = (header_rows[idx], count_datapoints(df_raw, header_rows[idx]))
+            popup.destroy()
+
+        ttk.Button(popup, text="Confirm", command=confirm).pack(pady=5)
+
+        popup.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
+        popup.geometry(f"400x120+{x}+{y}")
+
+        popup.wait_window()
+        return result[0]
     
     def load_std(self)->None:
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        file_path = filedialog.askopenfilename(title="Load Standard", filetypes=[("JSON files", "*.json")])
         if not file_path:
             return
         try:
@@ -506,7 +557,7 @@ class GUI_App(tk.Tk):
 
     def ask_layer(self, layers:list)->int:
         """"
-        If multiple layers are found in the loaded standard, ask the user which one to use.
+        If multiple layers are found in the loaded standard, ask the user which one to keep.
         """
         popup = tk.Toplevel()
         popup.transient(self)
@@ -543,7 +594,7 @@ class GUI_App(tk.Tk):
         return result[0]
 
     def load_target(self)->None:
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        file_path = filedialog.askopenfilename(title="Load Target", filetypes=[("JSON files", "*.json")])
         if file_path:
             try:
                 with open(file_path,'r') as f:
@@ -566,9 +617,10 @@ class GUI_App(tk.Tk):
     def std_calc(self, yield_value:float, beamWidth:float, DopplerYesNo:bool, straggling_model:str)->float:
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
-        """        
-        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
-        xc,x,y, layers_contribution, outOfTarget = mod3.broadening(6500, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
+        """      
+        energy = 6500 
+        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], energy)
+        xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
 
         value = mod4.compute_yield(self.std_target, x, y)
         K = yield_value/value
