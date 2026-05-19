@@ -6,8 +6,24 @@ import copy
 
 from class_models import Element, Layer, Target
 
-energy_res = 6385.0 # keV
+# Load settings
+script_dir = os.path.dirname(os.path.abspath(__file__))
+settings_path = os.path.join(script_dir, 'settings.json')
+with open(settings_path, 'r', encoding="utf-8") as f:
+    settings = json.load(f)
+
+Z1 = int(settings["reaction"]["Z1"])
+A1 = int(settings["reaction"]["A1"])
+M1 = periodictable.elements[Z1][A1].mass  # amu
+energy_res = settings["resonance"]["E_R"]  # keV
+
+# Stopping power variation allowed within a layer (in %)
 percentage = 0.5
+
+def check_srim_path(settings_path: str) -> bool:
+    with open(settings_path, 'r', encoding="utf-8") as f:
+        path = json.load(f)["SRIM_path"]
+    return os.path.exists(os.path.join(path, "SR Module"))
 
 # Writing input file for SRIM
 def write_input(layer: Layer, energy: float)->None:
@@ -22,7 +38,18 @@ def write_input(layer: Layer, energy: float)->None:
     -------
         None
     """
-    file_path = "SR.IN"
+    # Finding out where the script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__)) 
+    settings_path = os.path.join(script_dir, 'settings.json')
+
+    # Loading the SRIM path from the settings json file
+    with open(settings_path,'r', encoding="utf-8") as f:
+        filedata = json.load(f)
+        path=filedata["SRIM_path"]
+    SRIM_path = os.path.join(path,"SR Module")    
+    os.chdir(SRIM_path)
+
+    file_path = os.path.join(SRIM_path, "SR.IN")
 
     # Delete existing file if it exists
     #if os.path.isfile(file_path):
@@ -54,7 +81,7 @@ def write_input(layer: Layer, energy: float)->None:
         file.write("---Output File Name\n")
         file.write('"Output"\n')
         file.write("---Ion(Z), Ion Mass(u)\n")
-        file.write("7   15.000\n")
+        file.write(f"{Z1}   {M1}\n")
         file.write("---Target Data: (Solid=0,Gas=1), Density(g/cm3), Compound Corr.\n")
         file.write(f"0   {total_density:.4f}    0\n")
         file.write("---Number of Target Elements \n")
@@ -151,18 +178,18 @@ def assign_stopping(target: Target, energy: float) -> Target:
         while abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0: 
             if i == 0:
                 E_in = energy 
-                print('--- Layer #0, E in: ', E_in)
+                print(f'--- Layer #0, E in: {E_in:.6f} keV')
             else:
                 k = len(new_target["layers"])
                 loss = sum(new_target["layers"][n]["areal_density"] * new_target["layers"][n]["stopping"] for n in range(k))
                 E_in = energy - loss
-                print(f'--- Layer #{i}, E in: ', E_in)
+                print(f'--- Layer #{i}, E in: {E_in:.6f} keV')
 
             if E_in <= 0:
                 partDidntEnterLayer = True
                 break
             S_in = calc_stopping_power(layer,E_in)
-            print(f"IN - Energy: {E_in:.3f} & Stopping: {S_in:.6f}")
+            print(f"IN - Energy: {E_in:.3f} keV & Stopping: {S_in:.6f} keV/TFU")
             E_out = E_in - layer["areal_density"] * S_in
 
             if E_out < 0:
@@ -170,7 +197,7 @@ def assign_stopping(target: Target, energy: float) -> Target:
                 S_out = 0.000001
             else:
                 S_out = calc_stopping_power(layer, E_out)
-            print(f'OUT - Energy: {E_out:.3f} & Stopping: {S_out:.6f}')
+            print(f'OUT - Energy: {E_out:.3f} keV & Stopping: {S_out:.6f} keV/TFU')
 
             # Checking for variation between the stopping powers on entry VS on exit
             if abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0:
@@ -179,7 +206,7 @@ def assign_stopping(target: Target, energy: float) -> Target:
                 ctr+=1
             else:
                 layer["stopping"] = (S_in + S_out) / 2 # No segmentation required, assigning stopping power (mid layer approx)
-                print(f'Final Stopping: {layer["stopping"]} keV/TFU')
+                print(f'Final Stopping: {layer["stopping"]:.9f} keV/TFU')
 
         #NbrDaughter = 2**ctr
         if ctr ==2:
@@ -218,14 +245,3 @@ def assign_stopping(target: Target, energy: float) -> Target:
             new_target["layers"][k+nbr]["stopping"] = (S_in + S_out)/2
 
     return new_target
-
-# Finding out where the script is located
-script_dir = os.path.dirname(os.path.abspath(__file__)) 
-settings_path = os.path.join(script_dir, 'settings.json')
-
-# Loading the SRIM path from the settings json file
-with open(settings_path,'r', encoding="utf-8") as f:
-    filedata = json.load(f)
-    path=filedata["SRIM_path"]
-SRIM_path = os.path.join(path,"SR Module")    
-os.chdir(SRIM_path)

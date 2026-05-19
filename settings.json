@@ -1,10 +1,22 @@
 {
     "SRIM_path": "C:/SRIM",
-    "import_curve":{
+    "save_path": "C:/Users/loudupon/OneDrive - Universit\u00e9 de Namur",
+    "import_curve": {
         "columns": {
             "energy": "Energie (keV)",
-            "yield": "Ng/µC",
+            "yield": "Ng/\u00b5C",
             "yield_err": "Incertitude"
         }
-    }     
+    },
+    "reaction": {
+        "Z1": "7",
+        "A1": "15",
+        "Z2": "1",
+        "A2": "1"
+    },
+    "resonance": {
+        "E_R": 6385.0,
+        "Gamma": 1.8,
+        "Sigma": 1.65
+    }
 }

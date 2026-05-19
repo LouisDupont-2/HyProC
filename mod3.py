@@ -3,16 +3,29 @@ from scipy.signal import convolve
 import json
 from typing import Sequence, Literal
 from numpy.typing import NDArray
+import os
+import periodictable
+from xlwings import Range
 
 from class_models import Element, Layer, Target
 
-m_N = 13972.5 # keV
-m_H = 938.272 # keV
+# Load settings
+script_dir = os.path.dirname(os.path.abspath(__file__))
+settings_path = os.path.join(script_dir, 'settings.json')
+with open(settings_path, 'r', encoding="utf-8") as f:
+    settings = json.load(f)
+
+Z1 = int(settings["reaction"]["Z1"])
+A1 = int(settings["reaction"]["A1"])
+M1 = periodictable.elements[Z1][A1].mass* 931.494  # keV/c²
+Z2 = int(settings["reaction"]["Z2"])
+A2 = int(settings["reaction"]["A2"])
+M2 = periodictable.elements[Z2][A2].mass* 931.494  # keV/c²
 
 # Resonance properties
-E_R = 6385.0 # keV
-Gamma = 1.8 # keV
-sigma_R = 1650 # mb/keV
+E_R = settings["resonance"]["E_R"]  # keV
+Gamma = settings["resonance"]["Gamma"]  # keV
+sigma_R = settings["resonance"]["Sigma"]  # mbarn
 
 
 def gauss(x: NDArray[np.float64], x0:float, sigma:float)->NDArray[np.float64]:
@@ -155,20 +168,6 @@ def find_total_thickness(E_in: float, E_loss: list[float], index: int, target: T
     thickness+= thickness_in_last_layer
     return thickness
 
-def thickness(E_in: float, E_loss: list[float], index: int, target: Target)-> tuple[float, float]:
-    """
-    Calculates the thickness traveled by the incident particle up to the resonance point in the target and the remaining thickness after the resonance.
-
-    Parameters:
-        E_in (float): Incident beam energy.
-        E_loss (list): Cumulative energy loss values for each layer.
-        index (int): Index of the layer where the resonance occurs.
-                     Special values: -2 if resonance is before the target,
-                                     -1 if resonance is beyond the last layer.
-    """                                
-    
-
-
 def DopplerSD(target: Target, index: int)-> float:
     """
     Calculates the Doppler standard deviation (delta_D) for the incident particle 
@@ -184,7 +183,7 @@ def DopplerSD(target: Target, index: int)-> float:
     Returns:
         delta_D (float): Doppler standard deviation (delta_D) for the incident particle in the specified layer.
     """
-    Z = get_Z(target,index, excl_H=True)
+    Z = get_Z(target, index, excl_H=True)
     #print("Z Doppler", Z)
     if Z == 14:  # H-Si binding
         delta_D = 4.00
@@ -213,7 +212,7 @@ def Stragg_law(Z: int, thickness: float, model: str) -> float:
     if model == "Rud corr":
         return 2.03*Z**0.39*np.sqrt(thickness/10.0)/2.355/1.7
     if model == "Bohr":
-        return np.sqrt(0.260532*7**2*Z*thickness/1000.0) 
+        return np.sqrt(0.260532*Z1**2*Z*thickness/1000.0) 
 
 def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: str="Rud corr")-> float:
     """
@@ -316,11 +315,11 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         else:
             delta_D = DopplerSD(target, index)
     else:
-        delta_D = 0
+        delta_D = 0.0
 
     # Straggling
     if index==-2:
-        delta_S = 0
+        delta_S = 0.0
     else:
         delta_S = stragg(E_in, E_loss, index, target, straggling_model)
 
@@ -328,30 +327,58 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2)
 
     # Where to center the broadening curve
-    if E_in < E_R:
+    if index == -2:
         E_center = E_in
     elif index == -1:
         E_center = E_in - max(E_loss)
     else:
         E_center = E_R
         
-    Range = 4
-    x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 1501) 
-    dx = x[1] - x[0]
+    x_Range = 4
+    #x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 1501) 
+
+    #x = np.arange(E_center-Range*SD_gauss, E_center+Range*SD_gauss + (2*Range*SD_gauss)/1500, Gamma/25)
+
+    #dx = Gamma / 25  # fixed, Lorentzian always sampled identically
+    #n_half = round(Range * SD_gauss / dx)  # adapts to SD_gauss
+    #x = np.linspace(E_center - n_half * dx, E_center + n_half * dx, 2 * n_half + 1)
+
+    dx = Gamma / 15
+    n_half_gauss = round(x_Range * SD_gauss / dx)  # adapts to SD_gauss
+    n_half_lorentz = round(50 * Gamma / dx)       # fixed, always captures full Lorentzian
+    n_half = max(n_half_gauss, n_half_lorentz)
+    x = np.linspace(E_center - n_half * dx, E_center + n_half * dx, 2 * n_half + 1)
     
     y1 = gauss(x, E_center, SD_gauss)
-    y1 /= np.trapezoid(y1,x)  # Normalising
-    mean_y1 = np.trapezoid(x * y1, x)
-    
-    y2 = lorentz(x, E_R, Gamma, sigma_R/1000) 
+    #y1 /= np.trapezoid(y1,x)  # Normalising (opt)
+    centroid_y1 = np.trapezoid(x * y1, x) # Center of the Gaussian profile
+    #print("Mean of Gaussian: ", centroid_y1)
+    y2 = lorentz(x, E_R, Gamma, sigma_R) 
     #y2 /= np.trapezoid(y2, x)  # Normalising
 
     # Convolution between the final Gaussian & Lorentzian
     y_conv = convolve(y1, y2, mode='full') * dx  
     x_conv = np.arange(len(y_conv)) * dx + 2 * x[0]  # Generating x-axis 
-    y_conv /= np.trapezoid(y_conv, x_conv)  # Normalising
-    mean_conv = np.trapezoid(x_conv * y_conv, x_conv)  # Center of the resulting Voigt profile
-    x_conv = x_conv - (mean_conv - mean_y1)  # Centering the x axis on the resonance energy
+    #print("dx: ", dx, "x first element: ", x[0], "second element: ", x[1])
+    #print("x axis conv: ", x_conv)
+    #integral = np.trapezoid(y_conv, x_conv)
+    #centroid_true_equiv = np.trapezoid(x_conv * y_conv, x_conv) / integral
+
+    #print("integral of y_conv:", integral)
+    #print("centroid:", centroid_true_equiv)
+    #print("y_conv min/max:", y_conv.min(), y_conv.max())
+    #print("y_conv boundaries:", y_conv[0], y_conv[-1])
+    if False:
+        y_conv /= np.trapezoid(y_conv, x_conv)  # Normalising (necessary but why?)
+        centroid_conv = np.trapezoid(x_conv * y_conv, x_conv) # Center of the resulting Voigt profile
+    else:
+        centroid_conv = np.trapezoid(x_conv * y_conv, x_conv) / np.trapezoid(y_conv, x_conv) # Center of the resulting Voigt profile
+        #centroid_conv = x_conv[np.argmax(y_conv)] 
+    #print("Mean of convolution: ", centroid_conv, (centroid_conv - centroid_y1), "keV from the Gaussian center")
+    x_conv = x_conv - (centroid_conv - centroid_y1)  # Centering the x axis on the resonance energy
+    #print("Final x axis in E scale: ", x_conv)
+
+    #y_conv /= np.trapezoid(y_conv, x_conv)
 
     deltaE_in = E_in - E_R # Energy loss to get to the resonance
     center = find_total_thickness(E_in, E_loss, index, target)  # Thickness at which the energy resonance is reached for a given incident energy
@@ -373,7 +400,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         if new_index == -2:
             #value = center + (Eloss_value - deltaE_in)/target["layers"][0]["stopping"]
             x_value = Eloss_value/target["layers"][0]["stopping"]
-            y_value = y_conv[l]
+            y_value = y_conv[l] 
             # y_conv[np.where(x_conv == eVal)] = 0
             outOfTarget += 1
         
@@ -419,11 +446,12 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
 
     # Normalising to get layer contribution in %
     total = sum(layers_contribution) + outOfTarget
-    layers_contribution /= total
-    outOfTarget /= total
+    if total > 0:
+        layers_contribution /= total
+        outOfTarget /= total
     
     if saveData:
-        print(savepath)
+        #print(savepath)
         save(x, gauss(x,E_center, delta_B), savepath+"\\"+"Beam.txt")
         if delta_S == 0:
             save(x, np.zeros(len(x)), savepath+"\\"+"Stragg.txt")

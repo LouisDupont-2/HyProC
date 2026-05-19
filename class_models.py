@@ -54,6 +54,15 @@ class Layer(dict):
                 if i != index_to_keep:
                     el["percent_at"] = el["percent_at"] / current_other_sum * remaining
 
+    def find_element(self, Z: int = 1) -> float | None:
+        """
+        Returns the atomic percentage of element Z if found, None otherwise.
+        """
+        for element in self.get("elements", []):
+            if element.get("Z") == Z:
+                return element.get("percent_at", 0)
+        return None
+
 class Target(dict):
     def __init__(self)->None:
         self["layers"] = [Layer()] 
@@ -73,7 +82,7 @@ class Target(dict):
     def duplicate_layer(self, index:int)->None:
         original_layer = self["layers"][index]
         duplicated_layer = copy.deepcopy(original_layer)
-        self["layers"].append(duplicated_layer)
+        self["layers"].insert(index + 1, duplicated_layer)
 
     def move_layer_up(self, index:int)->None:
         if index > 0:
@@ -82,3 +91,4 @@ class Target(dict):
     def move_layer_down(self, index:int)->None:
         if index < len(self["layers"]) - 1:
             self["layers"][index + 1], self["layers"][index] = self["layers"][index], self["layers"][index + 1]
+

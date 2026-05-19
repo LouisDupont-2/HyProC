@@ -4,6 +4,29 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
 
 def create_widgets(self):
+        # Menu bar
+        menubar = tk.Menu(self)
+        self.config(menu=menubar)
+        target_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Target", menu=target_menu)
+        target_menu.add_command(label="Load", command=self.load_target)
+        target_menu.add_command(label="Save", command=self.save_json)
+
+        plot_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Plot", menu=plot_menu)
+        plot_menu.add_command(label="Save simulated curve data", command=self.save_sim_curve_txt)
+        plot_menu.add_command(label="Generate experimental curve", command=self.generate_exp_curve)
+        plot_menu.add_separator()
+        plot_menu.add_command(label="Remove experimental curve", command=self.on_remove_exp)
+        plot_menu.add_command(label="Remove simulated curve", command=self.on_remove_sim)
+        plot_menu.add_separator()
+        plot_menu.add_command(label="Reset chi-squared history", command=self.reset_chi_history)
+
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Settings", menu=settings_menu)
+        settings_menu.add_command(label="Settings", command=self.open_settings)
+        settings_menu.add_command(label="Manual", command=self.open_manual)
+
         # Main Frame
         self.main_frame = ttk.Frame(self)
         self.main_frame.pack(fill='both', expand=True)
@@ -21,17 +44,16 @@ def create_widgets(self):
         self.run_button = ttk.Button(self.left_frame, text='Run\nCalculation', command=self.start_calc,style="Center.TButton")
         self.run_button.pack(fill="x",padx=10,pady=(0,0), ipady=10)
 
-        self.extract_button = ttk.Button(self.left_frame, text='Extract H profile', command=self.plot_H_profile)
+        self.extract_button = ttk.Button(self.left_frame, text='Extract profile', command=self.plot_Z2_profile)
         self.extract_button.pack(fill="x",padx=10,pady=(0,10), ipady=5)     
 
-        self.load_target_button = ttk.Button(self.left_frame, text='Load target',command=self.load_target)
-        self.load_target_button.pack(fill="x",padx=10,pady=(10,0))
+        #self.load_target_button = ttk.Button(self.left_frame, text='Load target',command=self.load_target)
+        #self.load_target_button.pack(fill="x",padx=10,pady=(10,0))
+        #self.save_target_button = ttk.Button(self.left_frame, text='Save target',command=self.save_json)
+        #self.save_target_button.pack(fill="x",padx=10,pady=(0,10))
 
-        self.save_target_button = ttk.Button(self.left_frame, text='Save target',command=self.save_json)
-        self.save_target_button.pack(fill="x",padx=10,pady=(0,10))
-
-        self.save_sim_curve_button = ttk.Button(self.left_frame, text='Save simulated curve data',command=self.save_sim_curve_txt)
-        self.save_sim_curve_button.pack(fill="x",padx=10,pady=(10,5))
+        #self.save_sim_curve_button = ttk.Button(self.left_frame, text='Save simulated curve data',command=self.save_sim_curve_txt)
+        #self.save_sim_curve_button.pack(fill="x",padx=10,pady=(10,5))
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Standard frame
@@ -51,16 +73,21 @@ def create_widgets(self):
         self.options_frame.pack(fill='x', expand=False, padx=10, pady=5)
 
         self.options_frame1 = ttk.Frame(self.options_frame)
-        self.options_frame1.pack(fill='x', expand=False, padx=10, pady=5)
+        self.options_frame1.pack(fill='x', expand=False, padx=10, pady=(0,5))
 
-        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=0, column=0, padx=(0,5), pady=5, sticky='w')
+        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=0, column=0, padx=(0,5), pady=(5,0), sticky='w')
         self.straggling_model_combobox = ttk.Combobox(self.options_frame1, values=["Rud", "Rud corr", "Bohr"], state="readonly", width=10)
         self.straggling_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='e')
         self.straggling_model_combobox.set("Rud corr")
         
-        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=1, column=0, padx=(0,5), pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
         self.beamSD_entry.grid(row=1, column=1, padx=5, pady=(0,0),sticky='e')
+
+        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=2, column=0, padx=(0,5), pady=5, sticky='e')
+        self.offset_entry = ttk.Entry(self.options_frame1, width=8)
+        self.offset_entry.grid(row=2, column=1, padx=5, pady=(0,0), sticky='e')
+        self.offset_entry.insert(0, "0.0")
 
         self.options_frame2 = ttk.Frame(self.options_frame)
         self.options_frame2.pack(fill='x', expand=False, padx=5, pady=0)
@@ -117,6 +144,21 @@ def create_widgets(self):
         self.layer_listbox = tk.Listbox(self.layer_frame, exportselection=False,height=8)
         self.layer_listbox.pack(fill='both', expand=True, padx=5, pady=5)
         self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
+        
+        # --- WITH SCROLLBAR (commented out) ---
+        # # Frame to hold listbox and scrollbar
+        # self.layer_listbox_frame = ttk.Frame(self.layer_frame)
+        # self.layer_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        # 
+        # self.layer_listbox = tk.Listbox(self.layer_listbox_frame, exportselection=False, height=8)
+        # self.layer_listbox.pack(side='left', fill='both', expand=True)
+        # 
+        # # Scrollbar for layer listbox
+        # self.layer_scrollbar = ttk.Scrollbar(self.layer_listbox_frame, orient='vertical', command=self.layer_listbox.yview)
+        # self.layer_scrollbar.pack(side='right', fill='y')
+        # self.layer_listbox.config(yscrollcommand=self.layer_scrollbar.set)
+        # 
+        # self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
     
         # Layer Details
         self.detail_frame = ttk.LabelFrame(self.target_left_frame, text="Layer Details")
@@ -163,6 +205,21 @@ def create_widgets(self):
         self.elem_listbox = tk.Listbox(self.elem_frame,exportselection=False, height=8)
         self.elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
         self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
+        
+        # --- WITH SCROLLBAR (commented out) ---
+        # # Frame to hold listbox and scrollbar
+        # self.elem_listbox_frame = ttk.Frame(self.elem_frame)
+        # self.elem_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        # 
+        # self.elem_listbox = tk.Listbox(self.elem_listbox_frame, exportselection=False, height=8)
+        # self.elem_listbox.pack(side='left', fill='both', expand=True)
+        # 
+        # # Scrollbar for element listbox
+        # self.elem_scrollbar = ttk.Scrollbar(self.elem_listbox_frame, orient='vertical', command=self.elem_listbox.yview)
+        # self.elem_scrollbar.pack(side='right', fill='y')
+        # self.elem_listbox.config(yscrollcommand=self.elem_scrollbar.set)
+        # 
+        # self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
     
         # Element Details
         self.composition_frame = ttk.LabelFrame(self.target_right_frame, text="Elements Details")
@@ -202,6 +259,21 @@ def create_widgets(self):
         self.Std_elem_listbox = tk.Listbox(self.Std_elem_frame,exportselection=False, height=8)
         self.Std_elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
         self.Std_elem_listbox.bind('<<ListboxSelect>>', self.on_std_element_select)
+        
+        # --- WITH SCROLLBAR (commented out) ---
+        # # Frame to hold listbox and scrollbar
+        # self.Std_elem_listbox_frame = ttk.Frame(self.Std_elem_frame)
+        # self.Std_elem_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        # 
+        # self.Std_elem_listbox = tk.Listbox(self.Std_elem_listbox_frame, exportselection=False, height=8)
+        # self.Std_elem_listbox.pack(side='left', fill='both', expand=True)
+        # 
+        # # Scrollbar for standard element listbox
+        # self.Std_elem_scrollbar = ttk.Scrollbar(self.Std_elem_listbox_frame, orient='vertical', command=self.Std_elem_listbox.yview)
+        # self.Std_elem_scrollbar.pack(side='right', fill='y')
+        # self.Std_elem_listbox.config(yscrollcommand=self.Std_elem_scrollbar.set)
+        # 
+        # self.Std_elem_listbox.bind('<<ListboxSelect>>', self.on_std_element_select)
     
         # Element Details
         self.Std_composition_frame = ttk.LabelFrame(self.Std_frame, text="Elements Details")
