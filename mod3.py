@@ -333,57 +333,28 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         E_center = E_in - max(E_loss)
     else:
         E_center = E_R
-        
-    x_Range = 4
-    #x = np.linspace(E_center-Range*SD_gauss, E_center+Range*SD_gauss, 1501) 
 
-    #x = np.arange(E_center-Range*SD_gauss, E_center+Range*SD_gauss + (2*Range*SD_gauss)/1500, Gamma/25)
+    x_Range = 2
 
-    #dx = Gamma / 25  # fixed, Lorentzian always sampled identically
-    #n_half = round(Range * SD_gauss / dx)  # adapts to SD_gauss
-    #x = np.linspace(E_center - n_half * dx, E_center + n_half * dx, 2 * n_half + 1)
-
-    dx = Gamma / 15
-    n_half_gauss = round(x_Range * SD_gauss / dx)  # adapts to SD_gauss
-    n_half_lorentz = round(50 * Gamma / dx)       # fixed, always captures full Lorentzian
+    dx = Gamma / 20
+    n_half_gauss = round(x_Range * SD_gauss / dx)
+    n_half_lorentz = round(75 * Gamma / dx)
     n_half = max(n_half_gauss, n_half_lorentz)
     x = np.linspace(E_center - n_half * dx, E_center + n_half * dx, 2 * n_half + 1)
-    
+
     y1 = gauss(x, E_center, SD_gauss)
-    #y1 /= np.trapezoid(y1,x)  # Normalising (opt)
-    centroid_y1 = np.trapezoid(x * y1, x) # Center of the Gaussian profile
-    #print("Mean of Gaussian: ", centroid_y1)
-    y2 = lorentz(x, E_R, Gamma, sigma_R) 
-    #y2 /= np.trapezoid(y2, x)  # Normalising
+    y1 /= np.trapezoid(y1, x)
 
-    # Convolution between the final Gaussian & Lorentzian
-    y_conv = convolve(y1, y2, mode='full') * dx  
-    x_conv = np.arange(len(y_conv)) * dx + 2 * x[0]  # Generating x-axis 
-    #print("dx: ", dx, "x first element: ", x[0], "second element: ", x[1])
-    #print("x axis conv: ", x_conv)
-    #integral = np.trapezoid(y_conv, x_conv)
-    #centroid_true_equiv = np.trapezoid(x_conv * y_conv, x_conv) / integral
+    y2 = lorentz(x - E_R, 0, Gamma, sigma_R)  # kernel centered at 0, shape only
 
-    #print("integral of y_conv:", integral)
-    #print("centroid:", centroid_true_equiv)
-    #print("y_conv min/max:", y_conv.min(), y_conv.max())
-    #print("y_conv boundaries:", y_conv[0], y_conv[-1])
-    if False:
-        y_conv /= np.trapezoid(y_conv, x_conv)  # Normalising (necessary but why?)
-        centroid_conv = np.trapezoid(x_conv * y_conv, x_conv) # Center of the resulting Voigt profile
-    else:
-        centroid_conv = np.trapezoid(x_conv * y_conv, x_conv) / np.trapezoid(y_conv, x_conv) # Center of the resulting Voigt profile
-        #centroid_conv = x_conv[np.argmax(y_conv)] 
-    #print("Mean of convolution: ", centroid_conv, (centroid_conv - centroid_y1), "keV from the Gaussian center")
-    x_conv = x_conv - (centroid_conv - centroid_y1)  # Centering the x axis on the resonance energy
-    #print("Final x axis in E scale: ", x_conv)
-
-    #y_conv /= np.trapezoid(y_conv, x_conv)
+    # Convolution
+    y_conv = convolve(y1, y2, mode='same') * dx  # x_conv = x, no shift needed
 
     deltaE_in = E_in - E_R # Energy loss to get to the resonance
     center = find_total_thickness(E_in, E_loss, index, target)  # Thickness at which the energy resonance is reached for a given incident energy
     # print("c ",center)
 
+    x_conv = x
     # Changing the x-axis from energy (keV) to thickness (TFU)
     x_conv_TFU = np.zeros(len(x_conv))
     y_conv_TFU = np.zeros(len(x_conv))

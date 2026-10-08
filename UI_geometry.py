@@ -7,15 +7,34 @@ def create_widgets(self):
         # Menu bar
         menubar = tk.Menu(self)
         self.config(menu=menubar)
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Load simulation", command=self.load_simulation)
+        file_menu.add_command(label="Save simulation", command=self.save_simulation)
+
         target_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Target", menu=target_menu)
-        target_menu.add_command(label="Load", command=self.load_target)
-        target_menu.add_command(label="Save", command=self.save_json)
+        menubar.add_cascade(label="Target & Std", menu=target_menu)
+        target_menu.add_command(label="Load target", command=self.load_target)
+        target_menu.add_command(label="Save target", command=self.save_json)
+        target_menu.add_separator()
+        target_menu.add_command(label="Load standard", command=self.load_std)
+        target_menu.add_command(label="Save standard", command=lambda: self.save_json(target_type='std'))
 
         plot_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Plot", menu=plot_menu)
+        plot_menu.add_command(label="Rescale excitation curve", command=self.rescale_excitation_curve)
+        self.autoscale_exc_bool = tk.BooleanVar(value=False)
+        self.autoscale_menu = plot_menu
+        plot_menu.add_checkbutton(label="Autoscale: OFF", variable=self.autoscale_exc_bool)
+        self.autoscale_menu_index = plot_menu.index("end")
+        self.autoscale_exc_bool.trace_add("write", self.update_autoscale_menu_label)
+        self.sim_markers_bool = tk.BooleanVar(value=True)
+        plot_menu.add_checkbutton(label="Sim curve markers: ON", variable=self.sim_markers_bool)
+        self.sim_markers_menu_index = plot_menu.index("end")
+        self.sim_markers_bool.trace_add("write", self.update_sim_markers_menu_label)
+        plot_menu.add_separator()
         plot_menu.add_command(label="Save simulated curve data", command=self.save_sim_curve_txt)
-        plot_menu.add_command(label="Generate experimental curve", command=self.generate_exp_curve)
+        plot_menu.add_command(label="Load sim curve as exp curve", command=self.generate_exp_from_sim)
         plot_menu.add_separator()
         plot_menu.add_command(label="Remove experimental curve", command=self.on_remove_exp)
         plot_menu.add_command(label="Remove simulated curve", command=self.on_remove_sim)
@@ -33,6 +52,7 @@ def create_widgets(self):
 
         style = ttk.Style()
         style.configure("Center.TButton", font=("Segoe UI", 9), justify="center")
+        style.configure("Center.TMenubutton", font=("Segoe UI", 9), justify="center")
         ##################################################################
         # Left Frame
         self.left_frame = ttk.Frame(self.main_frame,width=150)
@@ -41,8 +61,19 @@ def create_widgets(self):
         self.import_button = ttk.Button(self.left_frame, text="Import excitation curve", width=20,command=self.load_curve)
         self.import_button.pack(fill="x",padx=10,pady=(10,0))
 
-        self.run_button = ttk.Button(self.left_frame, text='Run\nCalculation', command=self.start_calc,style="Center.TButton")
-        self.run_button.pack(fill="x",padx=10,pady=(0,0), ipady=10)
+        self.run_frame = ttk.Frame(self.left_frame)
+        self.run_frame.pack(fill="x", padx=10, pady=(0,0))
+
+        self.run_button = ttk.Button(self.run_frame, text='Run Calculation', command=lambda: self.start_calc(mode="normal"), style="Center.TButton")
+        self.run_button.pack(side='left', fill='x', expand=True, ipady=10)
+
+        self.run_menu = tk.Menu(self, tearoff=0)
+        self.run_menu.add_command(label="Run Calculation", command=lambda: self.start_calc(mode="normal"))
+        self.run_menu.add_command(label="Run Calculation (custom energy range)", command=lambda: self.start_calc(mode="custom"))
+        self.run_menu.add_command(label="Run Calculation (Loaded curve energy)", command=lambda: self.start_calc(mode="loaded_curve"))
+
+        self.run_menu_button = ttk.Button(self.run_frame, text='▼', width=3, command=self._post_run_menu, style="Center.TButton")
+        self.run_menu_button.pack(side='left', ipady=10)
 
         self.extract_button = ttk.Button(self.left_frame, text='Extract profile', command=self.plot_Z2_profile)
         self.extract_button.pack(fill="x",padx=10,pady=(0,10), ipady=5)     
@@ -59,13 +90,16 @@ def create_widgets(self):
         # Standard frame
         self.std_frame = ttk.LabelFrame(self.left_frame, text="Standard")
         self.std_frame.pack(fill='x', expand=False, padx=10, pady=5)
+        self.std_frame.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(self.std_frame, text="Yield (Count/µC):").grid(row=0, column=0, padx=15, pady=5, sticky='e')
-        self.std_Yield_entry = ttk.Entry(self.std_frame, width=12)
-        self.std_Yield_entry.grid(row=0, column=1, padx=5, pady=(5,0) )
+        ttk.Label(self.std_frame, text="Yield (Count/µC):").grid(row=0, column=0, padx=(10, 0), pady=5, ipadx=10, sticky='e')
+        self.std_Yield_entry = ttk.Entry(self.std_frame, width=10)
+        self.std_Yield_entry.grid(row=0, column=1, padx=10, pady=(5,0), sticky='we')
 
-        self.load_target_button = ttk.Button(self.std_frame, text='Load',command=self.load_std).grid(row=1, column=0, padx=5, pady=5,sticky='we')
-        self.save_target_button = ttk.Button(self.std_frame, text='Save',command=lambda: self.save_json(target_type='std')).grid(row=1, column=1, padx=5, pady=5,sticky='we')
+        self.load_std_button = ttk.Button(self.std_frame, text='Load', command=self.load_std)
+        self.load_std_button.grid(row=1, column=0, padx=(10, 0), pady=5, sticky='we')
+        self.save_std_button = ttk.Button(self.std_frame, text='Save', width=10, command=lambda: self.save_json(target_type='std'))
+        self.save_std_button.grid(row=1, column=1, padx=10, pady=5, sticky='we')
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Options checkbox
@@ -74,10 +108,11 @@ def create_widgets(self):
 
         self.options_frame1 = ttk.Frame(self.options_frame)
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=(0,5))
+        self.options_frame1.grid_columnconfigure(1, weight=1)
 
         ttk.Label(self.options_frame1, text="Straggling model:").grid(row=0, column=0, padx=(0,5), pady=(5,0), sticky='w')
         self.straggling_model_combobox = ttk.Combobox(self.options_frame1, values=["Rud", "Rud corr", "Bohr"], state="readonly", width=10)
-        self.straggling_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='e')
+        self.straggling_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='we')
         self.straggling_model_combobox.set("Rud corr")
         
         ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='e')

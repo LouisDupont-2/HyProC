@@ -19,6 +19,9 @@ import UI_geometry
 import mod2
 import mod3 
 import mod4        
+from energy_range_dialog import EnergyRangeDialog
+from settings_dialog import SettingsDialog
+from import_dialogs import SheetSelectionDialog, TableSelectionDialog
 
 def count_datapoints(df_raw: pd.DataFrame, header_row: int) -> int:
     # Count consecutive non-empty rows after the header
@@ -73,6 +76,11 @@ class GUI_App(tk.Tk):
         self.update_chi_plot()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def _post_run_menu(self)->None:
+        x = self.run_menu_button.winfo_rootx()
+        y = self.run_menu_button.winfo_rooty() + self.run_menu_button.winfo_height()
+        self.run_menu.post(x, y)    
+    
     def load_Z2(self, settings_path)->int:
         """
         Loads Z2 (target atomic number) from settings.
@@ -121,7 +129,12 @@ class GUI_App(tk.Tk):
             self.start_ctr += 1
             self.update_chi_plot()
 
-    def update_exc_plot(self, event=None)->None:
+    def update_exc_plot(self, event=None, preserve_view: bool = True)->None:
+        preserve_view = preserve_view and bool(self.ax0.lines or self.ax0.collections)
+        if preserve_view:
+            x_limits = self.ax0.get_xlim()
+            y_limits = self.ax0.get_ylim()
+
         self.ax0.clear()
         
         # Check if experimental curve data is available and valid
@@ -143,7 +156,8 @@ class GUI_App(tk.Tk):
             self.ax0.errorbar(self.exp_energy, self.ec_yield, self.ec_yErr, fmt='none', color='tab:blue')
         
         if check2:
-            self.ax0.plot(self.sim_energy, self.sim_curve, label='Sim', linestyle='--', marker='.', color='tab:orange')
+            marker = '.' if self.sim_markers_bool.get() else None
+            self.ax0.plot(self.sim_energy, self.sim_curve, label='Sim', linestyle='--', marker=marker, color='tab:orange')
         
         if check1 or check2:  # Only add legend if at least one curve is plotted
             self.ax0.legend(loc='best')
@@ -152,13 +166,46 @@ class GUI_App(tk.Tk):
         self.ax0.set_ylabel("Yield (Count/µC)")
         self.ax0.set_ylim(bottom=0)
         self.ax0.grid(alpha=0.4)
+        if preserve_view:
+            self.ax0.set_xlim(x_limits)
+            self.ax0.set_ylim(y_limits)
         self.canvas.draw()       
+
+    def rescale_excitation_curve(self)->None:
+        self.update_exc_plot(preserve_view=False)
+
+    def update_autoscale_menu_label(self, *_args)->None:
+        state = "ON" if self.autoscale_exc_bool.get() else "OFF"
+        self.autoscale_menu.entryconfigure(
+            self.autoscale_menu_index,
+            label=f"Autoscale: {state}"
+        )
+
+    def update_sim_markers_menu_label(self, *_args)->None:
+        state = "ON" if self.sim_markers_bool.get() else "OFF"
+        self.autoscale_menu.entryconfigure(
+            self.sim_markers_menu_index,
+            label=f"Sim markers: {state}"
+        )
+        self.update_exc_plot()
 
     # -------------------------------------------
     # GUI updates in top frames
+    @staticmethod
+    def _get_listbox_top_index(listbox: tk.Listbox)->int:
+        if listbox.size() == 0:
+            return 0
+        return listbox.nearest(0)
+
+    @staticmethod
+    def _restore_listbox_top_index(listbox: tk.Listbox, top_index: int)->None:
+        if listbox.size() > 0:
+            listbox.yview(min(top_index, listbox.size() - 1))
+
     def refresh_layer_list(self)->None:
         if self.selected_layer_index >= len(self.target["layers"]):
             self.selected_layer_index = max(0, len(self.target["layers"]) - 1)
+        top_index = self._get_listbox_top_index(self.layer_listbox)
         self.layer_listbox.delete(0, tk.END)
         for i, layer in enumerate(self.target["layers"]):
             data = sorted(layer["elements"], key=lambda el: el["percent_at"], reverse=True)
@@ -168,6 +215,7 @@ class GUI_App(tk.Tk):
                 f"Layer {i + 1}: {layer['areal_density']} TFU ({elements_str})"
             )
         self.layer_listbox.select_set(self.selected_layer_index)
+        self._restore_listbox_top_index(self.layer_listbox, top_index)
 
         # When starting the interface, filling in the textboxs:
         current_layer = self.target["layers"][self.selected_layer_index]
@@ -177,6 +225,7 @@ class GUI_App(tk.Tk):
     def refresh_element_list(self)->None:
         if self.selected_el_index >= len(self.target["layers"][self.selected_layer_index]["elements"]):
             self.selected_el_index = max(0, len(self.target["layers"][self.selected_layer_index]["elements"]) - 1)
+        top_index = self._get_listbox_top_index(self.elem_listbox)
         self.elem_listbox.delete(0, tk.END)
         current_layer = self.target["layers"][self.selected_layer_index]
         for el in current_layer["elements"]:
@@ -185,6 +234,7 @@ class GUI_App(tk.Tk):
                 f"{periodictable.elements[el['Z']].symbol} (Z={el['Z']}), {el['percent_at']:.2f} % at."
                 )
         self.elem_listbox.select_set(self.selected_el_index)
+        self._restore_listbox_top_index(self.elem_listbox, top_index)
 
         # When starting the interface, filling in the textboxs:
         element = current_layer["elements"][self.selected_el_index]
@@ -196,6 +246,7 @@ class GUI_App(tk.Tk):
     def refresh_Std_list(self)->None:
         if self.selected_Std_index >= len(self.std_target["layers"][0]["elements"]):
             self.selected_Std_index = max(0, len(self.std_target["layers"][0]["elements"]) - 1)
+        top_index = self._get_listbox_top_index(self.Std_elem_listbox)
         self.Std_elem_listbox.delete(0, tk.END)
         current_layer = self.std_target["layers"][0]
         for el in current_layer["elements"]:
@@ -204,6 +255,7 @@ class GUI_App(tk.Tk):
                 f"{periodictable.elements[el['Z']].symbol} (Z={el['Z']}), {el['percent_at']:.2f} % at."
                 )
         self.Std_elem_listbox.select_set(self.selected_Std_index)
+        self._restore_listbox_top_index(self.Std_elem_listbox, top_index)
 
         # When starting the interface, filling in the textboxs:
         element = current_layer["elements"][self.selected_Std_index]
@@ -219,6 +271,7 @@ class GUI_App(tk.Tk):
         self.selected_layer_index = len(self.target["layers"]) - 1
         self.selected_el_index = 0
         self.refresh_layer_list()
+        self.layer_listbox.see(self.selected_layer_index)
         self.refresh_element_list()
 
     def on_remove_layer_click(self)->None:
@@ -253,11 +306,13 @@ class GUI_App(tk.Tk):
                 self.target["layers"][self.selected_layer_index].add_element()
                 self.selected_el_index = len(self.target["layers"][self.selected_layer_index]["elements"]) - 1
                 self.refresh_element_list()
+                self.elem_listbox.see(self.selected_el_index)
                 self.refresh_layer_list()
             elif target_type == 'std':
                 self.std_target["layers"][0].add_element()
                 self.selected_Std_index = len(self.std_target["layers"][0]["elements"]) - 1
                 self.refresh_Std_list()
+                self.Std_elem_listbox.see(self.selected_Std_index)
         except ValueError:
             pass 
 
@@ -510,73 +565,19 @@ class GUI_App(tk.Tk):
             messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
         self.update_exc_plot()
 
-    def ask_sheet(self, file_path:str, sheet_names:list)->str:
+    def ask_sheet(self, file_path: str, sheet_names: list) -> str:
         """
         If multiple sheets are found in the loaded Excel file, ask the user which one to load.
         """
-        popup = tk.Toplevel()
-        popup.title("Select Sheet")
-        popup.transient(self)
-        popup.grab_set()
-    
-        ttk.Label(popup, text="Select sheet to load:").pack(pady=5)
-        
-        selected = tk.StringVar(value=sheet_names[0])
-        dropdown = ttk.Combobox(popup, textvariable=selected, values=sheet_names, state="readonly")
-        dropdown.pack(pady=5)
-    
-        result = [None]
-    
-        def confirm():
-            result[0] = selected.get()
-            popup.destroy()
+        dialog = SheetSelectionDialog(self, sheet_names)
+        return dialog.show()
 
-        ttk.Button(popup, text="Confirm", command=confirm).pack(pady=5)
-
-        # Centering the popup on main window
-        popup.withdraw()
-        popup.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
-        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
-        popup.geometry(f"250x120+{x}+{y}")
-        popup.deiconify()
-        
-        popup.wait_window()  # Blocks until popup is closed
-        return result[0]
-
-    def ask_table(self, df_raw: pd.DataFrame, header_rows: list[int], cols: list[str])-> tuple[int, int]:
-        popup = tk.Toplevel()
-        popup.transient(self)
-        popup.grab_set()
-        popup.title("Select Table")
-
-        ttk.Label(popup, text="Multiple tables found, select one:").pack(pady=5)
-
-        options = [f"Table {i+1} (header on row {row+1}, {count_datapoints(df_raw, row)} datapoints)"
-                   for i, row in enumerate(header_rows)]
-
-        selected = tk.StringVar(value=options[0])
-        dropdown = ttk.Combobox(popup, textvariable=selected, values=options, state="readonly", width=50)
-        dropdown.pack(pady=5)
-
-        result = [None]
-
-        def confirm():
-            idx = options.index(selected.get())
-            result[0] = (header_rows[idx], count_datapoints(df_raw, header_rows[idx]))
-            popup.destroy()
-
-        ttk.Button(popup, text="Confirm", command=confirm).pack(pady=5)
-
-        popup.withdraw()
-        popup.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
-        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
-        popup.geometry(f"400x120+{x}+{y}")
-        popup.deiconify()
-
-        popup.wait_window()
-        return result[0]
+    def ask_table(self, df_raw: pd.DataFrame, header_rows: list[int], cols: list[str]) -> tuple[int, int]:
+        """
+        If multiple tables are found in the DataFrame, ask the user which one to load.
+        """
+        dialog = TableSelectionDialog(self, df_raw, header_rows, count_datapoints)
+        return dialog.show()
     
     def load_std(self)->None:
         file_path = filedialog.askopenfilename(title="Load Standard", filetypes=[("JSON files", "*.json")])
@@ -657,6 +658,7 @@ class GUI_App(tk.Tk):
         popup.wait_window()
         return result[0]
 
+    # ----
     def load_target(self)->None:
         file_path = filedialog.askopenfilename(title="Load Target", filetypes=[("JSON files", "*.json")])
         if not file_path:
@@ -672,7 +674,181 @@ class GUI_App(tk.Tk):
         self.refresh_element_list()
         self.TargetStd_notebook.select(self.target_frame)  # Switch to the relevent tab
 
-    def generate_exp_curve(self)->None:
+    def save_simulation(self)->None:
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json")],
+            title="Save Simulation"
+        )
+        if not file_path:
+            return
+
+        simulation = {
+            "format": "HyProC simulation",
+            "version": 1,
+            "target": self.target,
+            "standard": self.std_target,
+            "experimental_curve": {
+                "energy": getattr(self, "exp_energy", []),
+                "yield": getattr(self, "ec_yield", []),
+                "yield_error": getattr(self, "ec_yErr", []),
+            },
+            "simulated_curve": {
+                "energy": getattr(self, "sim_energy", []),
+                "yield": getattr(self, "sim_curve", []),
+            },
+            "chi_squared": self.chi_val,
+            "chi_squared_start": self.start_ctr,
+            "options": {
+                "standard_yield": self.std_Yield_entry.get(),
+                "beam_width": self.beamSD_entry.get(),
+                "offset": self.offset_entry.get(),
+                "straggling_model": self.straggling_model_combobox.get(),
+                "doppler": self.Doppler_bool.get(),
+                "save_broadening_data": self.broadSave_bool.get(),
+                "track_target_changes": self.TrackTargetChange_bool.get(),
+                "autoscale": self.autoscale_exc_bool.get(),
+                "sim_markers": self.sim_markers_bool.get(),
+            },
+            "energy_range": {
+                "minimum": getattr(self, "e_min", None),
+                "maximum": getattr(self, "e_max", None),
+                "points": getattr(self, "nbr_points", 150),
+            },
+        }
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as file:
+                json.dump(simulation, file, indent=4)
+        except (OSError, TypeError, ValueError) as e:
+            messagebox.showerror("Save Simulation", f"Couldn't save the simulation.\n\n{e}")
+            return
+        print(f"Simulation saved to: {file_path}")
+
+    def load_simulation(self)->None:
+        file_path = filedialog.askopenfilename(
+            title="Load Simulation",
+            filetypes=[("JSON files", "*.json")]
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            if not isinstance(data, dict):
+                raise ValueError("The simulation file must contain a JSON object.")
+            if data.get("format") != "HyProC simulation" or data.get("version") != 1:
+                raise ValueError("This file is not a supported HyProC simulation.")
+
+            target_layers = data["target"]["layers"]
+            standard_layers = data["standard"]["layers"]
+            if not isinstance(target_layers, list) or not isinstance(standard_layers, list):
+                raise ValueError("Target and standard layers must be lists.")
+            if not target_layers or not standard_layers:
+                raise ValueError("A simulation must contain a target and a standard.")
+            target = Target()
+            target["layers"] = [Layer(data=layer) for layer in target_layers]
+            standard = Target()
+            standard["layers"] = [Layer(data=layer) for layer in standard_layers]
+
+            experimental_curve = data["experimental_curve"]
+            exp_energy = experimental_curve["energy"]
+            ec_yield = experimental_curve["yield"]
+            ec_y_error = experimental_curve["yield_error"]
+            if not all(isinstance(values, list) for values in (exp_energy, ec_yield, ec_y_error)):
+                raise ValueError("Experimental curve data must be stored as lists.")
+            if bool(ec_yield) != bool(ec_y_error) or (
+                ec_yield and not (len(exp_energy) == len(ec_yield) == len(ec_y_error))
+            ):
+                raise ValueError("Experimental curve arrays must have equal lengths.")
+            if not all(isinstance(value, (int, float)) for values in (exp_energy, ec_yield, ec_y_error) for value in values):
+                raise ValueError("Experimental curve values must be numeric.")
+
+            simulated_curve = data["simulated_curve"]
+            sim_energy = simulated_curve["energy"]
+            sim_curve = simulated_curve["yield"]
+            if not isinstance(sim_energy, list) or not isinstance(sim_curve, list):
+                raise ValueError("Simulated curve data must be stored as lists.")
+            if len(sim_energy) != len(sim_curve):
+                raise ValueError("Simulated curve arrays must have equal lengths.")
+            if not all(isinstance(value, (int, float)) for values in (sim_energy, sim_curve) for value in values):
+                raise ValueError("Simulated curve values must be numeric.")
+
+            chi_values = data["chi_squared"]
+            if not isinstance(chi_values, list):
+                raise ValueError("Chi-squared history must be stored as a list.")
+            if not all(isinstance(value, (int, float)) for value in chi_values):
+                raise ValueError("Chi-squared values must be numeric.")
+            options = data["options"]
+            energy_range = data["energy_range"]
+            if not isinstance(options, dict) or not isinstance(energy_range, dict):
+                raise ValueError("Simulation options and energy range must be JSON objects.")
+            if not all(key in energy_range for key in ("minimum", "maximum", "points")):
+                raise ValueError("Saved energy range is incomplete.")
+            if energy_range["minimum"] is not None and not isinstance(energy_range["minimum"], (int, float)):
+                raise ValueError("Minimum energy must be numeric or null.")
+            if energy_range["maximum"] is not None and not isinstance(energy_range["maximum"], (int, float)):
+                raise ValueError("Maximum energy must be numeric or null.")
+            if not isinstance(energy_range["points"], int):
+                raise ValueError("Energy range point count must be an integer.")
+            if not all(isinstance(options[key], str) for key in ("standard_yield", "beam_width", "offset", "straggling_model")):
+                raise ValueError("Saved calculation input values must be strings.")
+            if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
+                raise ValueError("Saved calculation flags must be boolean values.")
+            autoscale = options.get("autoscale", False)
+            if not isinstance(autoscale, bool):
+                raise ValueError("Saved autoscale setting must be a boolean value.")
+            sim_markers = options.get("sim_markers", True)
+            if not isinstance(sim_markers, bool):
+                raise ValueError("Saved simulated curve markers setting must be a boolean value.")
+            if options["straggling_model"] not in self.straggling_model_combobox["values"]:
+                raise ValueError("The saved straggling model is not supported.")
+            chi_start = data.get("chi_squared_start", 0)
+            if not isinstance(chi_start, int):
+                raise ValueError("Chi-squared history position must be an integer.")
+        except (OSError, json.JSONDecodeError, AttributeError, KeyError, TypeError, ValueError) as e:
+            messagebox.showerror("Load Simulation", f"Couldn't load the simulation.\n\n{e}")
+            return
+
+        self.target = target
+        self.std_target = standard
+        self.exp_energy = exp_energy
+        self.ec_yield = ec_yield
+        self.ec_yErr = ec_y_error
+        self.sim_energy = sim_energy
+        self.sim_curve = sim_curve
+        self.chi_val = chi_values
+        self.start_ctr = max(0, min(chi_start, max(0, len(self.chi_val) - self.visible_count)))
+        self.selected_layer_index = 0
+        self.selected_el_index = 0
+        self.selected_Std_index = 0
+
+        self.std_Yield_entry.delete(0, tk.END)
+        self.std_Yield_entry.insert(0, options["standard_yield"])
+        self.beamSD_entry.delete(0, tk.END)
+        self.beamSD_entry.insert(0, options["beam_width"])
+        self.offset_entry.delete(0, tk.END)
+        self.offset_entry.insert(0, options["offset"])
+        self.straggling_model_combobox.set(options["straggling_model"])
+        self.Doppler_bool.set(options["doppler"])
+        self.broadSave_bool.set(options["save_broadening_data"])
+        self.TrackTargetChange_bool.set(options["track_target_changes"])
+        self.autoscale_exc_bool.set(autoscale)
+        self.sim_markers_bool.set(sim_markers)
+
+        self.e_min = energy_range["minimum"]
+        self.e_max = energy_range["maximum"]
+        self.nbr_points = energy_range["points"]
+        self.refresh_layer_list()
+        self.refresh_element_list()
+        self.refresh_Std_list()
+        self.update_exc_plot()
+        self.update_chi_plot()
+        self.TargetStd_notebook.select(self.target_frame)
+        print(f"Simulation loaded from: {file_path}")
+
+    def generate_exp_from_sim(self)->None:
         if not hasattr(self, "sim_curve"):
             messagebox.showerror("Generate curve","No simulation curve data to load as experimental curve.")
             return
@@ -695,79 +871,10 @@ class GUI_App(tk.Tk):
         self.start_ctr = 0
         self.update_chi_plot()
 
+    # ----
     def open_settings(self):
-        popup = tk.Toplevel()
-        popup.transient(self)
-        popup.grab_set()
-        popup.title("Settings")
-        popup.columnconfigure(1, weight=1)
-
-        with open(self.settings_path, 'r', encoding="utf-8") as f:
-            config = json.load(f)
-
-        label_width = 25
-        entry_width = 40
-        browse_width = 5
-
-        # Paths
-        ttk.Label(popup, text="SRIM Path:",width=label_width).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        srim_entry = ttk.Entry(popup, width=entry_width+browse_width)
-        srim_entry.insert(0, config["SRIM_path"])
-        srim_entry.grid(row=0, column=1, padx=(10,0), pady=5, sticky="ew")
-        def browse_srim():
-            folder = filedialog.askdirectory(initialdir=srim_entry.get())
-            if folder:
-                srim_entry.delete(0, tk.END)
-                srim_entry.insert(0, folder)
-        ttk.Button(popup, text="...", command=browse_srim, width=0).grid(row=0, column=2, padx=(0,5), pady=5)
-
-        ttk.Label(popup, text="HyProC data save path:",width=label_width).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        save_entry = ttk.Entry(popup, width=entry_width+browse_width)
-        save_entry.insert(0, config["save_path"])
-        save_entry.grid(row=1, column=1, padx=(10,0), pady=5, sticky="ew")
-        def browse_save():
-            folder = filedialog.askdirectory(initialdir=save_entry.get())
-            if folder:
-                save_entry.delete(0, tk.END)
-                save_entry.insert(0, folder)
-        ttk.Button(popup, text="...", command=browse_save, width=0).grid(row=1, column=2, padx=(0,5), pady=5)        
-
-        # Column names
-        ttk.Label(popup, text="Energy column header:",width=label_width).grid(row=2, column=0, padx=10, pady=(5,0), sticky="w")
-        energy_entry = ttk.Entry(popup, width=entry_width+browse_width)
-        energy_entry.insert(0, config["import_curve"]["columns"]["energy"])
-        energy_entry.grid(row=2, column=1, columnspan=2, padx=10, pady=(5,0), sticky="ew")
-
-        ttk.Label(popup, text="Yield column header:",width=label_width).grid(row=3, column=0, padx=10, pady=0, sticky="w")
-        yield_entry = ttk.Entry(popup, width=entry_width+browse_width)
-        yield_entry.insert(0, config["import_curve"]["columns"]["yield"])
-        yield_entry.grid(row=3, column=1, columnspan=2, padx=10, pady=0, sticky="ew")
-
-        ttk.Label(popup, text="Yield error column header:",width=label_width).grid(row=4, column=0, padx=10, pady=(0,5), sticky="w")
-        yield_err_entry = ttk.Entry(popup, width=entry_width+browse_width)
-        yield_err_entry.insert(0, config["import_curve"]["columns"]["yield_err"])
-        yield_err_entry.grid(row=4, column=1, columnspan=2, padx=10, pady=(0,5), sticky="ew")
-
-        def save_settings():
-            config["SRIM_path"] = srim_entry.get()
-            config["save_path"] = save_entry.get()
-            config["import_curve"]["columns"]["energy"] = energy_entry.get()
-            config["import_curve"]["columns"]["yield"] = yield_entry.get()
-            config["import_curve"]["columns"]["yield_err"] = yield_err_entry.get()
-            with open(self.settings_path, 'w', encoding="utf-8") as f:
-                json.dump(config, f, indent=4)
-            self.Z2 = self.load_Z2(self.settings_path)
-            popup.destroy()
-
-        ttk.Button(popup, text="Save", command=save_settings).grid(row=5, column=0, columnspan=3, pady=10)
-
-        popup.withdraw()
-        popup.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
-        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
-        popup.geometry(f"+{x}+{y}")
-        popup.deiconify()
-        popup.minsize(400, 175)
+        dialog = SettingsDialog(self, self.settings_path)
+        dialog.show()
 
     def open_manual(self):
         manual_path = os.path.join(self.script_dir, "HyProC_Manual.pdf")
@@ -778,78 +885,45 @@ class GUI_App(tk.Tk):
         else:
             subprocess.run(["xdg-open", manual_path])
 
-    def ask_energy_range(self) -> tuple[float, float] | None:
-        popup = tk.Toplevel()
-        popup.withdraw()  # Hide the window until it's properly sized and positioned
-        popup.transient(self)
-        popup.grab_set()
-        popup.title("No Excitation Curve Loaded")
+    # -------------------------------------------
+    def ask_energy_range(self, offset: float = 0.0) -> tuple[float, float, int] | tuple[float, float, int, list[float]] | None:
+        try:
+            offset = float(self.offset_entry.get())
+        except ValueError:
+            offset = 0.0
 
-        ttk.Label(popup, text=f"No experimental excitation curve loaded.\nDefine an energy range to generate a simulated curve.",
-                  wraplength=350, justify="center").grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-
-        ttk.Label(popup, text="Minimum energy (keV):").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        min_entry = ttk.Entry(popup, width=10)
-        min_entry.insert(0, str(getattr(self, "e_min", "")))
-        min_entry.grid(row=1, column=1, padx=10, pady=5)
-
-        ttk.Label(popup, text="Maximum energy (keV):").grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        max_entry = ttk.Entry(popup, width=10)
-        max_entry.insert(0, str(getattr(self, "e_max", "")))
-        max_entry.grid(row=2, column=1, padx=10, pady=5)
-
-        ttk.Label(popup, text="Number of points:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
-        nbr_entry = ttk.Entry(popup, width=10)
-        nbr_entry.insert(0, str(getattr(self, "nbr_points", 150)))
-        nbr_entry.grid(row=3, column=1, padx=10, pady=5)
-
-        result = [None]
-
-        def generate():
-            try:
-                e_min = float(min_entry.get())
-                e_max = float(max_entry.get())
-                if e_min >= e_max:
-                    messagebox.showerror("Invalid Range", "Minimum energy must be less than maximum energy.")
-                    return
-                nbr = int(nbr_entry.get())
-                result[0] = (e_min, e_max, nbr)
-                popup.destroy()
-            except ValueError:
-                messagebox.showerror("Invalid Input", "Please enter valid numeric values for both energies.")
-                return 
-
-        def cancel():
-            popup.destroy()
-
-        btn_frame = ttk.Frame(popup)
-        btn_frame.grid(row=4, column=0, columnspan=2, pady=10)
-        ttk.Button(btn_frame, text="Cancel", command=cancel).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Generate", command=generate).pack(side="left", padx=5)
-
-        #popup.withdraw()
-        popup.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - (popup.winfo_width() // 2)
-        y = self.winfo_y() + (self.winfo_height() // 2) - (popup.winfo_height() // 2)
-        popup.geometry(f"+{x}+{y}")
-        popup.deiconify()
-        popup.minsize(300, 150)
-
-        popup.wait_window()
-        return result[0]
+        dialog = EnergyRangeDialog(
+            self,
+            offset=offset,
+            e_min=getattr(self, "e_min", None),
+            e_max=getattr(self, "e_max", None),
+            nbr_points=getattr(self, "nbr_points", 150),
+            sim_energy=getattr(self, "sim_energy", None),
+        )
+        return dialog.show()
 
     # -------------------------------------------
-    def start_calc(self)->None:
+    def start_calc(self, mode:Literal["normal","custom", "loaded_curve"]="normal")->None:
         """
         Prevents the GUI from freezing under load.
+
+        Parameters
+        ----------
+        mode : Literal["normal", "custom", "loaded_curve"]
+            Normal reuses current simulated energies, then loaded curve energies, or asks for a range if neither exists. Custom always asks for a new range. Loaded_curve uses the loaded curve energies.
         """
-        threading.Thread(target=self.Calculation).start() 
+        if mode == "normal":
+            threading.Thread(target=self.Calculation).start() 
+        elif mode == "custom":
+            threading.Thread(target=lambda: self.Calculation(force_energy_range=True)).start()
+        elif mode == "loaded_curve":
+            threading.Thread(target=lambda: self.Calculation(use_loaded_curve_energies=True)).start()
 
     def std_calc(self, yield_value:float, beamWidth:float, DopplerYesNo:bool, straggling_model:str)->float:
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
         """      
-        energy = 6525 
+        energy = 6550 
         self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], energy)
         xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
 
@@ -871,7 +945,7 @@ class GUI_App(tk.Tk):
         print("K calculated: ", K)
         return K        
 
-    def Calculation(self)->None:
+    def Calculation(self, force_energy_range: bool = False, use_loaded_curve_energies: bool = False)->None:
         """
         Generates a simulated excitation curve.
         """
@@ -912,18 +986,41 @@ class GUI_App(tk.Tk):
             messagebox.showerror("Calculation failed", f"Standard calculation error.\n\nNo {periodictable.elements[self.Z2].name.capitalize()} in the standard.")
             return
 
-        # If no experimental curve loaded, ask for energy range to generate a simulated curve
-        if not hasattr(self, "ec_yield") or not self.ec_yield:
-            result = self.ask_energy_range()
+        # Decide which energy range to use for the calculation
+        if use_loaded_curve_energies:
+            if not getattr(self, "exp_energy", None):
+                messagebox.showerror("Calculation failed", "No loaded curve energies are available.")
+                return
+            energy_range = [energy - offset for energy in self.exp_energy]
+        elif force_energy_range:
+            result = self.ask_energy_range(offset)
             if result is None:
                 return
-            self.e_min, self.e_max, self.nbr_points = result
-            self.exp_energy = list(np.linspace(self.e_min, self.e_max, self.nbr_points))
-            self.ec_yield = None  # No experimental yield
+            if len(result) == 4:
+                _, _, _, energies = result
+                energy_range = list(energies)
+            else:
+                self.e_min, self.e_max, self.nbr_points = result
+                energy_range = [energy - offset for energy in np.linspace(self.e_min, self.e_max, self.nbr_points)]
+        elif getattr(self, "sim_energy", None):
+            energy_range = [energy - offset for energy in self.sim_energy]
+        elif getattr(self, "exp_energy", None):
+            energy_range = [energy - offset for energy in self.exp_energy]
+        else:
+            result = self.ask_energy_range(offset)
+            if result is None:
+                return
+            if len(result) == 4:
+                _, _, _, energies = result
+                energy_range = list(energies)
+            else:
+                self.e_min, self.e_max, self.nbr_points = result
+                energy_range = [energy - offset for energy in np.linspace(self.e_min, self.e_max, self.nbr_points)]
+
+        print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
 
         # Calculating K factor
-        try:
-            print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")  
+        try:  
             if self.std_target["layers"][0].normalize():
                 self.refresh_Std_list()
                 print("Standard layer normalised.")
@@ -933,12 +1030,13 @@ class GUI_App(tk.Tk):
             raise Exception("Standard calculation failed.")
         
         try:
-            self.run_button.config(text="Working...", style="Working.TButton", state="disabled")
+            self.run_button.config(text="Working...", state="disabled")
+            self.run_menu_button.config(state="disabled")
 
             # Normalising target
             self.target.normalize_all_layers()
             size_before = len(self.target["layers"])
-            self.target = mod2.assign_stopping(self.target, max(self.exp_energy))
+            self.target = mod2.assign_stopping(self.target, max(energy_range))
             self.refresh_layer_list()
             self.refresh_element_list()            
 
@@ -959,7 +1057,7 @@ class GUI_App(tk.Tk):
             countE = 0
 
             # Actual calculation loop
-            for energy in self.exp_energy:
+            for energy in energy_range:
                 if SaveBroadData:
                     sub_dir = f'datapoint{countE}'
                     savepath = os.path.join(target_dir, sub_dir)
@@ -981,7 +1079,7 @@ class GUI_App(tk.Tk):
                 
                 countE+=1 # Datapoint number
 
-            self.update_exc_plot()
+            self.update_exc_plot(preserve_view=not self.autoscale_exc_bool.get())
             if hasattr(self, 'exp_energy') and self.exp_energy is not None and hasattr(self, 'ec_yield') and self.ec_yield is not None:
                 self.chi_val.append(round(mod4.chi_squared_test(self.exp_energy, self.ec_yield, self.sim_energy, self.sim_curve), 2))
             else:
@@ -1007,7 +1105,8 @@ class GUI_App(tk.Tk):
                 print(f"File : {frame.filename}, line : {frame.lineno}, code : {frame.line}")
         
         # Unlocking the "Run Calculation" button
-        self.run_button.config(text="Run calculation",style="Default.TButton", state="normal")
+        self.run_button.config(text="Run Calculation",style="Center.TButton", state="normal")
+        self.run_menu_button.config(state="normal")
 
     def _close_Z2_profile(self)->None:
         self.Z2_profile.destroy()
@@ -1120,7 +1219,7 @@ class GUI_App(tk.Tk):
             return
         try:
             with open(file_path, 'w') as file:
-                for v1, v2 in zip(self.exp_energy, self.sim_curve):
+                for v1, v2 in zip(self.sim_energy, self.sim_curve):
                     file.write(f"{v1:.3f}\t{v2:.1f}\n")
             print(f"File saved to: {file_path}")
         except Exception as e:
