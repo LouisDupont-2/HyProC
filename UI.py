@@ -67,12 +67,13 @@ class GUI_App(tk.Tk):
         self.start_ctr = 0
         self.visible_count = 9
         self.chi_val=[]
+        self.chi_energy_bounds_history: list[tuple[float | None, float | None] | None] = []
 
         UI_geometry.create_widgets(self)
         self.refresh_layer_list()
         self.refresh_element_list() 
         self.refresh_Std_list()
-        self.update_exc_plot()
+        self.rescale_excitation_curve()
         self.update_chi_plot()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -95,7 +96,30 @@ class GUI_App(tk.Tk):
         visible_values = self.chi_val[self.start_ctr:self.start_ctr + self.visible_count]
         y_positions = range(len(visible_values))
 
-        bars = self.ax1.barh(y_positions, visible_values, color="cornflowerblue", height=0.8)
+        try:
+            min_text = self.chi_energy_min_entry.get().strip()
+            max_text = self.chi_energy_max_entry.get().strip()
+            current_bounds = (
+                float(min_text) if min_text else None,
+                float(max_text) if max_text else None,
+            )
+            if any(value is not None and not np.isfinite(value) for value in current_bounds):
+                current_bounds = None
+            elif current_bounds[0] is not None and current_bounds[1] is not None and current_bounds[0] > current_bounds[1]:
+                current_bounds = None
+        except ValueError:
+            current_bounds = None
+
+        history_bounds = getattr(self, "chi_energy_bounds_history", [])
+        visible_bounds = history_bounds[self.start_ctr:self.start_ctr + self.visible_count]
+        bar_colors = [
+            "cornflowerblue" if used_bounds is not None and used_bounds == current_bounds else "gray"
+            for used_bounds in visible_bounds
+        ]
+        if len(bar_colors) < len(visible_values):
+            bar_colors.extend(["gray"] * (len(visible_values) - len(bar_colors)))
+
+        bars = self.ax1.barh(y_positions, visible_values, color=bar_colors, height=0.8)
 
         self.ax1.invert_yaxis()
         self.ax1.set_yticks(y_positions)
@@ -119,6 +143,10 @@ class GUI_App(tk.Tk):
         #self.figure1.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.05)
         self.canvas1.draw()
 
+    def on_chi_energy_bounds_change(self, event=None)->None:
+        self.update_exc_plot()
+        self.update_chi_plot()
+
     def scroll_up(self)->None:
         if self.start_ctr > 0:
             self.start_ctr -= 1
@@ -129,8 +157,27 @@ class GUI_App(tk.Tk):
             self.start_ctr += 1
             self.update_chi_plot()
 
+    def get_chi_energy_bounds(self)->tuple[float | None, float | None] | None:
+        try:
+            min_text = self.chi_energy_min_entry.get().strip()
+            max_text = self.chi_energy_max_entry.get().strip()
+            min_energy = float(min_text) if min_text else None
+            max_energy = float(max_text) if max_text else None
+        except ValueError:
+            messagebox.showerror("Invalid chi-squared range", "Enter numeric values for the minimum and maximum energy, or leave either field blank.")
+            return None
+
+        if any(value is not None and not np.isfinite(value) for value in (min_energy, max_energy)):
+            messagebox.showerror("Invalid chi-squared range", "Energy bounds must be finite numbers.")
+            return None
+        if min_energy is not None and max_energy is not None and min_energy > max_energy:
+            messagebox.showerror("Invalid chi-squared range", "Minimum energy must be less than or equal to maximum energy.")
+            return None
+        return min_energy, max_energy
+
     def update_exc_plot(self, event=None, preserve_view: bool = True)->None:
-        preserve_view = preserve_view and bool(self.ax0.lines or self.ax0.collections)
+        has_existing_curve = bool(getattr(self, "exp_energy", [])) or bool(getattr(self, "sim_energy", []))
+        preserve_view = preserve_view and has_existing_curve
         if preserve_view:
             x_limits = self.ax0.get_xlim()
             y_limits = self.ax0.get_ylim()
@@ -158,9 +205,8 @@ class GUI_App(tk.Tk):
         if check2:
             marker = '.' if self.sim_markers_bool.get() else None
             self.ax0.plot(self.sim_energy, self.sim_curve, label='Sim', linestyle='--', marker=marker, color='tab:orange')
-        
-        if check1 or check2:  # Only add legend if at least one curve is plotted
-            self.ax0.legend(loc='best')
+
+        legend = self.ax0.legend(loc='best') if check1 or check2 else None
         
         self.ax0.set_xlabel("Energy (keV)")
         self.ax0.set_ylabel("Yield (Count/µC)")
@@ -169,6 +215,37 @@ class GUI_App(tk.Tk):
         if preserve_view:
             self.ax0.set_xlim(x_limits)
             self.ax0.set_ylim(y_limits)
+
+        show_bounds = self.show_chi_energy_bounds_bool.get()
+        if legend is not None and show_bounds:
+            self.canvas.draw()
+            renderer = self.canvas.get_renderer()
+            legend_bbox = legend.get_window_extent(renderer)
+            legend_anchor = legend_bbox.transformed(self.ax0.transAxes.inverted())
+            border_padding = (
+                legend.borderaxespad
+                * legend.prop.get_size_in_points()
+                * self.figure0.dpi
+                / 72
+            )
+            legend.set_bbox_to_anchor(
+                (
+                    legend_anchor.x0 - border_padding / self.ax0.bbox.width,
+                    legend_anchor.y0 - border_padding / self.ax0.bbox.height,
+                ),
+                transform=self.ax0.transAxes,
+            )
+            legend.set_loc("lower left")
+
+        if show_bounds:
+            for entry in (self.chi_energy_min_entry, self.chi_energy_max_entry):
+                try:
+                    energy_bound = float(entry.get().strip())
+                except ValueError:
+                    continue
+                if np.isfinite(energy_bound):
+                    self.ax0.axvline(energy_bound, linestyle=':', color='gray')
+
         self.canvas.draw()       
 
     def rescale_excitation_curve(self)->None:
@@ -186,6 +263,14 @@ class GUI_App(tk.Tk):
         self.autoscale_menu.entryconfigure(
             self.sim_markers_menu_index,
             label=f"Sim markers: {state}"
+        )
+        self.update_exc_plot()
+
+    def update_chi_energy_bounds_menu_label(self, *_args)->None:
+        state = "ON" if self.show_chi_energy_bounds_bool.get() else "OFF"
+        self.autoscale_menu.entryconfigure(
+            self.chi_energy_bounds_menu_index,
+            label=f"Chi-squared energy bounds: {state}"
         )
         self.update_exc_plot()
 
@@ -698,6 +783,7 @@ class GUI_App(tk.Tk):
                 "yield": getattr(self, "sim_curve", []),
             },
             "chi_squared": self.chi_val,
+            "chi_squared_energy_bounds": self.chi_energy_bounds_history,
             "chi_squared_start": self.start_ctr,
             "options": {
                 "standard_yield": self.std_Yield_entry.get(),
@@ -709,6 +795,9 @@ class GUI_App(tk.Tk):
                 "track_target_changes": self.TrackTargetChange_bool.get(),
                 "autoscale": self.autoscale_exc_bool.get(),
                 "sim_markers": self.sim_markers_bool.get(),
+                "show_chi_energy_bounds": self.show_chi_energy_bounds_bool.get(),
+                "chi_energy_min": self.chi_energy_min_entry.get(),
+                "chi_energy_max": self.chi_energy_max_entry.get(),
             },
             "energy_range": {
                 "minimum": getattr(self, "e_min", None),
@@ -780,6 +869,24 @@ class GUI_App(tk.Tk):
                 raise ValueError("Chi-squared history must be stored as a list.")
             if not all(isinstance(value, (int, float)) for value in chi_values):
                 raise ValueError("Chi-squared values must be numeric.")
+            chi_bounds_history = data.get("chi_squared_energy_bounds")
+            if chi_bounds_history is None:
+                chi_bounds_history = [None] * len(chi_values)
+            if not isinstance(chi_bounds_history, list) or len(chi_bounds_history) != len(chi_values):
+                raise ValueError("Chi-squared energy bounds history must match the chi-squared history length.")
+            for bounds in chi_bounds_history:
+                if bounds is None:
+                    continue
+                if not isinstance(bounds, list) or len(bounds) != 2:
+                    raise ValueError("Each chi-squared energy bound entry must contain a minimum and maximum.")
+                if any(value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value)) for value in bounds):
+                    raise ValueError("Chi-squared energy bounds must be finite numbers or null.")
+                if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
+                    raise ValueError("A saved chi-squared minimum energy is greater than its maximum.")
+            chi_bounds_history = [
+                None if bounds is None else (bounds[0], bounds[1])
+                for bounds in chi_bounds_history
+            ]
             options = data["options"]
             energy_range = data["energy_range"]
             if not isinstance(options, dict) or not isinstance(energy_range, dict):
@@ -796,12 +903,25 @@ class GUI_App(tk.Tk):
                 raise ValueError("Saved calculation input values must be strings.")
             if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
                 raise ValueError("Saved calculation flags must be boolean values.")
-            autoscale = options.get("autoscale", False)
+            autoscale = options.get("autoscale", True)
             if not isinstance(autoscale, bool):
                 raise ValueError("Saved autoscale setting must be a boolean value.")
             sim_markers = options.get("sim_markers", True)
             if not isinstance(sim_markers, bool):
                 raise ValueError("Saved simulated curve markers setting must be a boolean value.")
+            show_chi_energy_bounds = options.get("show_chi_energy_bounds", False)
+            if not isinstance(show_chi_energy_bounds, bool):
+                raise ValueError("Saved chi-squared energy bounds visibility setting must be a boolean value.")
+            chi_energy_min = options.get("chi_energy_min", "")
+            chi_energy_max = options.get("chi_energy_max", "")
+            if not isinstance(chi_energy_min, str) or not isinstance(chi_energy_max, str):
+                raise ValueError("Saved chi-squared energy bounds must be strings.")
+            for value in (chi_energy_min, chi_energy_max):
+                if value.strip():
+                    if not np.isfinite(float(value)):
+                        raise ValueError("Saved chi-squared energy bounds must be finite numbers.")
+            if chi_energy_min.strip() and chi_energy_max.strip() and float(chi_energy_min) > float(chi_energy_max):
+                raise ValueError("Saved chi-squared minimum energy is greater than its maximum.")
             if options["straggling_model"] not in self.straggling_model_combobox["values"]:
                 raise ValueError("The saved straggling model is not supported.")
             chi_start = data.get("chi_squared_start", 0)
@@ -819,6 +939,7 @@ class GUI_App(tk.Tk):
         self.sim_energy = sim_energy
         self.sim_curve = sim_curve
         self.chi_val = chi_values
+        self.chi_energy_bounds_history = chi_bounds_history
         self.start_ctr = max(0, min(chi_start, max(0, len(self.chi_val) - self.visible_count)))
         self.selected_layer_index = 0
         self.selected_el_index = 0
@@ -836,6 +957,11 @@ class GUI_App(tk.Tk):
         self.TrackTargetChange_bool.set(options["track_target_changes"])
         self.autoscale_exc_bool.set(autoscale)
         self.sim_markers_bool.set(sim_markers)
+        self.show_chi_energy_bounds_bool.set(show_chi_energy_bounds)
+        self.chi_energy_min_entry.delete(0, tk.END)
+        self.chi_energy_min_entry.insert(0, chi_energy_min)
+        self.chi_energy_max_entry.delete(0, tk.END)
+        self.chi_energy_max_entry.insert(0, chi_energy_max)
 
         self.e_min = energy_range["minimum"]
         self.e_max = energy_range["maximum"]
@@ -843,7 +969,7 @@ class GUI_App(tk.Tk):
         self.refresh_layer_list()
         self.refresh_element_list()
         self.refresh_Std_list()
-        self.update_exc_plot()
+        self.rescale_excitation_curve()
         self.update_chi_plot()
         self.TargetStd_notebook.select(self.target_frame)
         print(f"Simulation loaded from: {file_path}")
@@ -868,6 +994,7 @@ class GUI_App(tk.Tk):
 
     def reset_chi_history(self)->None:
         self.chi_val = []
+        self.chi_energy_bounds_history = []
         self.start_ctr = 0
         self.update_chi_plot()
 
@@ -979,6 +1106,10 @@ class GUI_App(tk.Tk):
             offset = float(self.offset_entry.get())
         except:
             offset = 0.0
+        chi_energy_bounds = self.get_chi_energy_bounds()
+        if chi_energy_bounds is None:
+            return
+        chi_energy_min, chi_energy_max = chi_energy_bounds
 
         # Check for the element of interest in the standard
         percent_at = self.std_target["layers"][0].find_element(Z=self.Z2)
@@ -1081,9 +1212,21 @@ class GUI_App(tk.Tk):
 
             self.update_exc_plot(preserve_view=not self.autoscale_exc_bool.get())
             if hasattr(self, 'exp_energy') and self.exp_energy is not None and hasattr(self, 'ec_yield') and self.ec_yield is not None:
-                self.chi_val.append(round(mod4.chi_squared_test(self.exp_energy, self.ec_yield, self.sim_energy, self.sim_curve), 2))
+                selected_points = [
+                    index for index, energy in enumerate(self.exp_energy)
+                    if (chi_energy_min is None or energy >= chi_energy_min)
+                    and (chi_energy_max is None or energy <= chi_energy_max)
+                ]
+                chi_squared = mod4.chi_squared_test(
+                    [self.exp_energy[index] for index in selected_points],
+                    [self.ec_yield[index] for index in selected_points],
+                    self.sim_energy,
+                    self.sim_curve,
+                )
+                self.chi_val.append(round(chi_squared, 2))
             else:
                 self.chi_val.append(-1.0)
+            self.chi_energy_bounds_history.append((chi_energy_min, chi_energy_max))
             if len(self.chi_val) > self.visible_count:
                 self.scroll_down()
             self.update_chi_plot()
