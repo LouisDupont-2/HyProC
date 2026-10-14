@@ -32,8 +32,8 @@ def create_widgets(self):
         plot_menu.add_checkbutton(label="Sim curve markers: ON", variable=self.sim_markers_bool)
         self.sim_markers_menu_index = plot_menu.index("end")
         self.sim_markers_bool.trace_add("write", self.update_sim_markers_menu_label)
-        self.show_chi_energy_bounds_bool = tk.BooleanVar(value=False)
-        plot_menu.add_checkbutton(label="Chi-squared energy bounds: OFF", variable=self.show_chi_energy_bounds_bool)
+        self.show_chi_energy_bounds_bool = tk.BooleanVar(value=True)
+        plot_menu.add_checkbutton(label="Chi-squared energy bounds: ON", variable=self.show_chi_energy_bounds_bool)
         self.chi_energy_bounds_menu_index = plot_menu.index("end")
         self.show_chi_energy_bounds_bool.trace_add("write", self.update_chi_energy_bounds_menu_label)
         plot_menu.add_separator()
@@ -114,18 +114,28 @@ def create_widgets(self):
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=(0,5))
         self.options_frame1.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=0, column=0, padx=(0,5), pady=(5,0), sticky='w')
+        ttk.Label(self.options_frame1, text="Stopping model:").grid(row=0, column=0, padx=(0,5), pady=(5,0), sticky='w')
+        self.stopping_model_combobox = ttk.Combobox(
+            self.options_frame1,
+            values=["SRIM", "SCS-25-Solid"],
+            state="readonly",
+            width=10,
+        )
+        self.stopping_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='we')
+        self.stopping_model_combobox.set("SRIM")
+
+        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='w')
         self.straggling_model_combobox = ttk.Combobox(self.options_frame1, values=["Rud", "Rud corr", "Bohr"], state="readonly", width=10)
-        self.straggling_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='we')
+        self.straggling_model_combobox.grid(row=1, column=1, padx=5, pady=(5,0), sticky='we')
         self.straggling_model_combobox.set("Rud corr")
         
-        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=2, column=0, padx=(0,5), pady=(5,0), sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
-        self.beamSD_entry.grid(row=1, column=1, padx=5, pady=(0,0),sticky='e')
+        self.beamSD_entry.grid(row=2, column=1, padx=5, pady=(0,0),sticky='e')
 
-        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=2, column=0, padx=(0,5), pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=3, column=0, padx=(0,5), pady=5, sticky='e')
         self.offset_entry = ttk.Entry(self.options_frame1, width=8)
-        self.offset_entry.grid(row=2, column=1, padx=5, pady=(0,0), sticky='e')
+        self.offset_entry.grid(row=3, column=1, padx=5, pady=(0,0), sticky='e')
         self.offset_entry.insert(0, "0.0")
 
         self.options_frame2 = ttk.Frame(self.options_frame)

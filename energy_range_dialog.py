@@ -1,9 +1,10 @@
 import tkinter as tk
+import math
 from tkinter import messagebox, ttk
 
 
 class EnergyRangeDialog(tk.Toplevel):
-    def __init__(self, parent, offset: float = 0.0, e_min=None, e_max=None, nbr_points=150, sim_energy=None):
+    def __init__(self, parent, offset: float = 0.0, e_min=None, e_max=None, step_size=2.5, sim_energy=None):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
@@ -13,14 +14,14 @@ class EnergyRangeDialog(tk.Toplevel):
         self.sim_energy = sim_energy or []
         self.result = None
 
-        self._build_ui(e_min, e_max, nbr_points)
+        self._build_ui(e_min, e_max, step_size)
         self._position(parent)
 
         self.grab_set()
         self.deiconify()
         self.minsize(275, 275)
 
-    def _build_ui(self, e_min, e_max, nbr_points):
+    def _build_ui(self, e_min, e_max, step_size):
         ttk.Label(
             self,
             text="Define an energy range to generate a simulated curve.",
@@ -45,10 +46,10 @@ class EnergyRangeDialog(tk.Toplevel):
         self.max_entry.insert(0, str(e_max) if e_max is not None else "")
         self.max_entry.grid(row=3, column=1, padx=10, pady=5)
 
-        ttk.Label(self, text="Number of points:").grid(row=4, column=0, padx=10, pady=5, sticky="w")
-        self.nbr_entry = ttk.Entry(self, width=10)
-        self.nbr_entry.insert(0, str(nbr_points))
-        self.nbr_entry.grid(row=4, column=1, padx=10, pady=5)
+        ttk.Label(self, text="Step size (keV):").grid(row=4, column=0, padx=10, pady=5, sticky="w")
+        self.step_entry = ttk.Entry(self, width=10)
+        self.step_entry.insert(0, str(round(step_size, 1)))
+        self.step_entry.grid(row=4, column=1, padx=10, pady=5)
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=5, column=0, columnspan=2, pady=(10, 5))
@@ -69,14 +70,20 @@ class EnergyRangeDialog(tk.Toplevel):
         try:
             e_min = float(self.min_entry.get())
             e_max = float(self.max_entry.get())
+            step_size = float(self.step_entry.get())
+            if not all(math.isfinite(value) for value in (e_min, e_max, step_size)):
+                messagebox.showerror("Invalid Range", "Energies and step size must be finite numbers.")
+                return
             if e_min >= e_max:
                 messagebox.showerror("Invalid Range", "Minimum energy must be less than maximum energy.")
                 return
-            nbr = int(self.nbr_entry.get())
-            self.result = (e_min, e_max, nbr)
+            if step_size <= 0:
+                messagebox.showerror("Invalid Step Size", "Step size must be greater than zero.")
+                return
+            self.result = (e_min, e_max, step_size)
             self.destroy()
         except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter valid numeric values for both energies.")
+            messagebox.showerror("Invalid Input", "Please enter valid numeric values for both energies and the step size.")
 
     def use_sim_curve(self):
         if not self.sim_energy:

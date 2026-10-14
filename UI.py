@@ -238,6 +238,8 @@ class GUI_App(tk.Tk):
             legend.set_loc("lower left")
 
         if show_bounds:
+            self.canvas.draw()
+            x_limits = self.ax0.get_xlim()
             for entry in (self.chi_energy_min_entry, self.chi_energy_max_entry):
                 try:
                     energy_bound = float(entry.get().strip())
@@ -245,6 +247,7 @@ class GUI_App(tk.Tk):
                     continue
                 if np.isfinite(energy_bound):
                     self.ax0.axvline(energy_bound, linestyle=':', color='gray')
+            self.ax0.set_xlim(x_limits)
 
         self.canvas.draw()       
 
@@ -569,6 +572,7 @@ class GUI_App(tk.Tk):
         )
         if not file_path:
             return 
+        loaded_successfully = False
         try:
             with open(self.settings_path, 'r', encoding="utf-8") as f:
                 config = json.load(f)["import_curve"]["columns"]
@@ -640,6 +644,7 @@ class GUI_App(tk.Tk):
             self.exp_energy = [self.exp_energy[i] for i in sorted_indices]
             self.ec_yield = [self.ec_yield[i] for i in sorted_indices]
             self.ec_yErr = [self.ec_yErr[i] for i in sorted_indices]
+            loaded_successfully = True
 
         except PermissionError:
             messagebox.showerror("Permission Denied", 
@@ -648,7 +653,10 @@ class GUI_App(tk.Tk):
             print("PermissionError: File is likely opened in another application.")
         except ValueError as e:
             messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
-        self.update_exc_plot()
+        if loaded_successfully:
+            self.rescale_excitation_curve()
+        else:
+            self.update_exc_plot()
 
     def ask_sheet(self, file_path: str, sheet_names: list) -> str:
         """
@@ -685,10 +693,13 @@ class GUI_App(tk.Tk):
             self.std_target["layers"] = [selected_layer]
             self.std_target["layers"][0]["areal_density"] = 1500.0
 
-            if not mod2.check_srim_path(self.settings_path):
+            stopping_model = self._get_stopping_model()
+            if stopping_model == "SRIM" and not mod2.check_srim_path(self.settings_path):
                 messagebox.showerror("Loading standard failed", "SRIM path not found.\n\nPlease check your settings.")
                 return
-            self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], 6385)
+            self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_cross_section(
+                self.std_target["layers"][0], 6385, stopping_model
+            )
 
             # Check for the element of interest
             percent_at = self.std_target["layers"][0].find_element(self.Z2)
@@ -700,8 +711,8 @@ class GUI_App(tk.Tk):
             self.refresh_Std_list()
             self.TargetStd_notebook.select(self.Std_frame)  # Switch to the relevent tab
 
-        except ValueError as e:
-            messagebox.showerror("Loading Error", f"Couldn't load the data.\n\n{e}")
+        except (OSError, KeyError, TypeError, ValueError) as e:
+            messagebox.showerror("Loading Error", f"Couldn't load the standard or calculate its stopping cross section.\n\n{e}")
 
     def ask_layer(self, layers:list)->int:
         """"
@@ -771,6 +782,7 @@ class GUI_App(tk.Tk):
         simulation = {
             "format": "HyProC simulation",
             "version": 1,
+            "saved_at": datetime.now().isoformat(timespec="seconds"),
             "target": self.target,
             "standard": self.std_target,
             "experimental_curve": {
@@ -789,6 +801,7 @@ class GUI_App(tk.Tk):
                 "standard_yield": self.std_Yield_entry.get(),
                 "beam_width": self.beamSD_entry.get(),
                 "offset": self.offset_entry.get(),
+                "stopping_model": self.stopping_model_combobox.get(),
                 "straggling_model": self.straggling_model_combobox.get(),
                 "doppler": self.Doppler_bool.get(),
                 "save_broadening_data": self.broadSave_bool.get(),
@@ -802,7 +815,7 @@ class GUI_App(tk.Tk):
             "energy_range": {
                 "minimum": getattr(self, "e_min", None),
                 "maximum": getattr(self, "e_max", None),
-                "points": getattr(self, "nbr_points", 150),
+                "step_size": getattr(self, "energy_step_size", 1.0),
             },
         }
 
@@ -891,14 +904,28 @@ class GUI_App(tk.Tk):
             energy_range = data["energy_range"]
             if not isinstance(options, dict) or not isinstance(energy_range, dict):
                 raise ValueError("Simulation options and energy range must be JSON objects.")
-            if not all(key in energy_range for key in ("minimum", "maximum", "points")):
+            if not all(key in energy_range for key in ("minimum", "maximum")):
                 raise ValueError("Saved energy range is incomplete.")
             if energy_range["minimum"] is not None and not isinstance(energy_range["minimum"], (int, float)):
                 raise ValueError("Minimum energy must be numeric or null.")
             if energy_range["maximum"] is not None and not isinstance(energy_range["maximum"], (int, float)):
                 raise ValueError("Maximum energy must be numeric or null.")
-            if not isinstance(energy_range["points"], int):
-                raise ValueError("Energy range point count must be an integer.")
+            step_size = energy_range.get("step_size")
+            if step_size is None and isinstance(energy_range.get("points"), int):
+                point_count = energy_range["points"]
+                minimum = energy_range["minimum"]
+                maximum = energy_range["maximum"]
+                if minimum is not None and maximum is not None and point_count > 1:
+                    step_size = (maximum - minimum) / (point_count - 1)
+                else:
+                    step_size = 1.0
+            if (
+                isinstance(step_size, bool)
+                or not isinstance(step_size, (int, float))
+                or not np.isfinite(step_size)
+                or step_size <= 0
+            ):
+                raise ValueError("Energy range step size must be a finite positive number.")
             if not all(isinstance(options[key], str) for key in ("standard_yield", "beam_width", "offset", "straggling_model")):
                 raise ValueError("Saved calculation input values must be strings.")
             if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
@@ -909,7 +936,7 @@ class GUI_App(tk.Tk):
             sim_markers = options.get("sim_markers", True)
             if not isinstance(sim_markers, bool):
                 raise ValueError("Saved simulated curve markers setting must be a boolean value.")
-            show_chi_energy_bounds = options.get("show_chi_energy_bounds", False)
+            show_chi_energy_bounds = options.get("show_chi_energy_bounds", True)
             if not isinstance(show_chi_energy_bounds, bool):
                 raise ValueError("Saved chi-squared energy bounds visibility setting must be a boolean value.")
             chi_energy_min = options.get("chi_energy_min", "")
@@ -924,6 +951,9 @@ class GUI_App(tk.Tk):
                 raise ValueError("Saved chi-squared minimum energy is greater than its maximum.")
             if options["straggling_model"] not in self.straggling_model_combobox["values"]:
                 raise ValueError("The saved straggling model is not supported.")
+            stopping_model = options.get("stopping_model")
+            if stopping_model not in self.stopping_model_combobox["values"]:
+                stopping_model = "SRIM"
             chi_start = data.get("chi_squared_start", 0)
             if not isinstance(chi_start, int):
                 raise ValueError("Chi-squared history position must be an integer.")
@@ -951,6 +981,7 @@ class GUI_App(tk.Tk):
         self.beamSD_entry.insert(0, options["beam_width"])
         self.offset_entry.delete(0, tk.END)
         self.offset_entry.insert(0, options["offset"])
+        self.stopping_model_combobox.set(stopping_model)
         self.straggling_model_combobox.set(options["straggling_model"])
         self.Doppler_bool.set(options["doppler"])
         self.broadSave_bool.set(options["save_broadening_data"])
@@ -965,7 +996,7 @@ class GUI_App(tk.Tk):
 
         self.e_min = energy_range["minimum"]
         self.e_max = energy_range["maximum"]
-        self.nbr_points = energy_range["points"]
+        self.energy_step_size = step_size
         self.refresh_layer_list()
         self.refresh_element_list()
         self.refresh_Std_list()
@@ -1013,7 +1044,7 @@ class GUI_App(tk.Tk):
             subprocess.run(["xdg-open", manual_path])
 
     # -------------------------------------------
-    def ask_energy_range(self, offset: float = 0.0) -> tuple[float, float, int] | tuple[float, float, int, list[float]] | None:
+    def ask_energy_range(self, offset: float = 0.0) -> tuple[float, float, float] | tuple[float, float, int, list[float]] | None:
         try:
             offset = float(self.offset_entry.get())
         except ValueError:
@@ -1024,10 +1055,24 @@ class GUI_App(tk.Tk):
             offset=offset,
             e_min=getattr(self, "e_min", None),
             e_max=getattr(self, "e_max", None),
-            nbr_points=getattr(self, "nbr_points", 150),
+            step_size=getattr(self, "energy_step_size", 2.5),
             sim_energy=getattr(self, "sim_energy", None),
         )
         return dialog.show()
+
+    @staticmethod
+    def _generate_energy_values(e_min: float, e_max: float, step_size: float) -> list[float]:
+        interval_count = (e_max - e_min) / step_size
+        if not np.isfinite(interval_count):
+            raise ValueError("The energy range and step size produce too many calculation points.")
+
+        full_steps = int(np.floor(interval_count))
+        energies = [e_min + index * step_size for index in range(full_steps + 1)]
+        if np.isclose(energies[-1], e_max, rtol=1e-12, atol=1e-12):
+            energies[-1] = e_max
+        else:
+            energies.append(e_max)
+        return energies
 
     # -------------------------------------------
     def start_calc(self, mode:Literal["normal","custom", "loaded_curve"]="normal")->None:
@@ -1046,12 +1091,26 @@ class GUI_App(tk.Tk):
         elif mode == "loaded_curve":
             threading.Thread(target=lambda: self.Calculation(use_loaded_curve_energies=True)).start()
 
-    def std_calc(self, yield_value:float, beamWidth:float, DopplerYesNo:bool, straggling_model:str)->float:
+    def _get_stopping_model(self)->Literal["SRIM", "SCS-25-Solid"]:
+        if self.stopping_model_combobox.get() == "SCS-25-Solid":
+            return "SCS-25-Solid"
+        return "SRIM"
+
+    def std_calc(
+        self,
+        yield_value: float,
+        beamWidth: float,
+        DopplerYesNo: bool,
+        straggling_model: str,
+        stopping_model: Literal["SRIM", "SCS-25-Solid"] = "SRIM",
+    )->float:
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
         """      
         energy = 6550 
-        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_power(self.std_target["layers"][0], energy)
+        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_cross_section(
+            self.std_target["layers"][0], energy, stopping_model
+        )
         xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
 
         #print(f"DEBUG: Broadening output shapes: x={np.array(x).shape}, y={np.array(y).shape}")
@@ -1076,8 +1135,19 @@ class GUI_App(tk.Tk):
         """
         Generates a simulated excitation curve.
         """
-        # Checking settings: Can SRIM & save paths can be accessed?
-        if not mod2.check_srim_path(self.settings_path):
+        custom_energy_result = None
+        if force_energy_range:
+            try:
+                offset = float(self.offset_entry.get())
+            except ValueError:
+                offset = 0.0
+            custom_energy_result = self.ask_energy_range(offset)
+            if custom_energy_result is None:
+                return
+
+        # Checking settings: Can SRIM (if selected) & save paths be accessed?
+        stopping_model = self._get_stopping_model()
+        if stopping_model == "SRIM" and not mod2.check_srim_path(self.settings_path):
             messagebox.showerror("Calculation failed", "SRIM path not found.\n\nPlease check your settings.")
             return
         with open(self.settings_path, 'r', encoding="utf-8") as f:
@@ -1124,15 +1194,16 @@ class GUI_App(tk.Tk):
                 return
             energy_range = [energy - offset for energy in self.exp_energy]
         elif force_energy_range:
-            result = self.ask_energy_range(offset)
-            if result is None:
-                return
+            result = custom_energy_result
             if len(result) == 4:
                 _, _, _, energies = result
                 energy_range = list(energies)
             else:
-                self.e_min, self.e_max, self.nbr_points = result
-                energy_range = [energy - offset for energy in np.linspace(self.e_min, self.e_max, self.nbr_points)]
+                self.e_min, self.e_max, self.energy_step_size = result
+                energy_range = [
+                    energy - offset
+                    for energy in self._generate_energy_values(self.e_min, self.e_max, self.energy_step_size)
+                ]
         elif getattr(self, "sim_energy", None):
             energy_range = [energy - offset for energy in self.sim_energy]
         elif getattr(self, "exp_energy", None):
@@ -1145,8 +1216,11 @@ class GUI_App(tk.Tk):
                 _, _, _, energies = result
                 energy_range = list(energies)
             else:
-                self.e_min, self.e_max, self.nbr_points = result
-                energy_range = [energy - offset for energy in np.linspace(self.e_min, self.e_max, self.nbr_points)]
+                self.e_min, self.e_max, self.energy_step_size = result
+                energy_range = [
+                    energy - offset
+                    for energy in self._generate_energy_values(self.e_min, self.e_max, self.energy_step_size)
+                ]
 
         print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
 
@@ -1155,10 +1229,13 @@ class GUI_App(tk.Tk):
             if self.std_target["layers"][0].normalize():
                 self.refresh_Std_list()
                 print("Standard layer normalised.")
-            K = self.std_calc(std_yield, beamWidth, DopplerYesNo, straggling_model)
-        except:
-            messagebox.showerror("Calculation failed", "Standard calculation error.\n\nMake sure all the standards information were correctly entered.")
-            raise Exception("Standard calculation failed.")
+            K = self.std_calc(std_yield, beamWidth, DopplerYesNo, straggling_model, stopping_model)
+        except Exception as e:
+            messagebox.showerror(
+                "Calculation failed",
+                f"Standard calculation error.\n\nMake sure all the standards information were correctly entered.\n\n{e}",
+            )
+            raise Exception("Standard calculation failed.") from e
         
         try:
             self.run_button.config(text="Working...", state="disabled")
@@ -1167,7 +1244,7 @@ class GUI_App(tk.Tk):
             # Normalising target
             self.target.normalize_all_layers()
             size_before = len(self.target["layers"])
-            self.target = mod2.assign_stopping(self.target, max(energy_range))
+            self.target = mod2.assign_stopping(self.target, max(energy_range), stopping_model)
             self.refresh_layer_list()
             self.refresh_element_list()            
 
@@ -1237,7 +1314,7 @@ class GUI_App(tk.Tk):
             self.runNbr+=1 # Run number
 
             if len(self.target["layers"]) != size_before:
-                messagebox.showinfo("Calculations","At least one layer has been segmented to more accurately describe stopping powers.")
+                messagebox.showinfo("Calculations","At least one layer has been segmented to more accurately describe stopping cross sections.")
 
             print("*-*-*-*-*-*-* Calculation completed *-*-*-*-*-*-*") 
         except Exception as e:
