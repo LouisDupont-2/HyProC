@@ -30,3 +30,4 @@ latex manual files/
 
 # Intermediate PDFs (the published manual PDF remains tracked)
 /manual/source/*.pdf
+.scratch/
