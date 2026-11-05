@@ -8,10 +8,11 @@ import periodictable
 from xlwings import Range
 
 from class_models import Element, Layer, Target
+from settings_config import ensure_settings
 
 # Load settings
 script_dir = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(script_dir, 'settings.json')
+settings_path = ensure_settings()
 with open(settings_path, 'r', encoding="utf-8") as f:
     settings = json.load(f)
 
@@ -202,11 +203,13 @@ def Stragg_law(Z: int, thickness: float, model: str) -> float:
     Parameters:
         Z (int or float) : Atomic number of the material.
         thickness (float) : Thickness of the material layer (units depend on the model used).
-        model (str, optional) : The straggling model to use; "Rud", "Rud corr" (default) or "Bohr".
+        model (str, optional) : The straggling model to use; "Rud", "Rud corr", "Bohr", or "None".
 
     Returns:
         float : Calculated energy straggling value according to the selected model.
     """
+    if model == "None":
+        return 0.0
     if model == "Rud":
         return 2.03*Z**0.39*np.sqrt(thickness/10.0)/2.355
     if model == "Rud corr":
@@ -231,6 +234,9 @@ def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: 
     Returns:
         Delta_Stg (float): Straggling standard deviation according to the selected model.
     """
+    if model == "None":
+        return 0.0
+
     Var_S = 0.0
 
     if index == -1:
@@ -454,7 +460,6 @@ if __name__ == "__main__":
     x=loss_axis(target_input)
     SD = stragg(E_i, x, -1, target_input)
  
-
 
 
 

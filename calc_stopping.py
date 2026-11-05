@@ -8,10 +8,11 @@ from functools import lru_cache
 from typing import Literal
 
 from class_models import Element, Layer, Target
+from settings_config import ensure_settings
 
 # Load settings
 script_dir = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(script_dir, 'settings.json')
+settings_path = ensure_settings()
 with open(settings_path, 'r', encoding="utf-8") as f:
     settings = json.load(f)
 
@@ -26,7 +27,7 @@ percentage = 0.5
 def check_srim_path(settings_path: str) -> bool:
     with open(settings_path, 'r', encoding="utf-8") as f:
         path = json.load(f)["SRIM_path"]
-    return os.path.exists(os.path.join(path, "SR Module"))
+    return bool(path.strip()) and os.path.isdir(os.path.join(path, "SR Module"))
 
 # Writing input file for SRIM
 def write_input(layer: Layer, energy: float)->None:
@@ -139,7 +140,7 @@ def read_SRIM_stopping_cross_section()-> float:
 
 @lru_cache(maxsize=1)
 def _load_dk_parameters() -> list[list[dict | None]]:
-    parameter_path = os.path.join(script_dir, "SCS-2025-solid.json")
+    parameter_path = os.path.join(script_dir, "data", "SCS-2025-solid.json")
     with open(parameter_path, "r", encoding="utf-8") as file:
         data = json.load(file)
     return data["parameters"]
@@ -262,98 +263,74 @@ def calc_stopping_cross_section(layer: Layer, energy: float, model: Literal["SRI
     return read_SRIM_stopping_cross_section()/1000 # Final units: keV/TFU
 
 def assign_stopping(target: Target, energy: float, model: Literal["SRIM", "SCS-25-Solid"] = "SRIM") -> Target:
-    '''
-    Computes the stopping cross section of each layer based on its composition and the initial beam energy. The stopping cross section is considered constant, therefore layers that are too thick are cut in smaller ones to keep that approximation correct.
+    """Return a copy of ``target`` with layers subdivided for stopping accuracy.
 
-    Parameters:
-        target (Target): Target  description
-        energy (float): Max energy of the excitation curve
-
-    Returns:
-        target_copy (Target): Target description. Each layer has a constant stopping cross section (in keV/TFU)
-
-    '''
+    Each original layer is repeatedly halved until the stopping cross sections
+    at its entry and exit differ by no more than ``percentage``. The resulting
+    segments retain the original layer's total areal density.
+    """
     new_target = copy.deepcopy(target)
-    new_target["layers"].clear()
-    partDidntEnterLayer = False
-    index = 0
-    daughterLayers_by_layer = []
+    new_target["layers"] = []
+    current_energy = energy
+    relative_tolerance = percentage / 100.0
 
-    for i, layer in enumerate(target["layers"]):
-        ctr = 1
+    def stopping_at_layer_bounds(layer: Layer, entry_energy: float, thickness: float)->tuple[float, float]:
+        stopping_in = calc_stopping_cross_section(layer, entry_energy, model)
+        exit_energy = entry_energy - thickness * stopping_in
+        if exit_energy < 0:
+            return stopping_in, 0.000001
+        stopping_out = calc_stopping_cross_section(layer, exit_energy, model)
+        return stopping_in, stopping_out
 
-        # Dummy values to make sure the program enters the while loop
-        S_in = 10
-        S_out = 1
+    for original_index, original_layer in enumerate(target["layers"]):
+        original_ad = original_layer["areal_density"]
+        segment_count = 1
+        segment_ad = original_ad
 
-        while abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0: 
-            if i == 0:
-                E_in = energy 
-                print(f'--- Layer #0, E in: {E_in:.6f} keV')
-            else:
-                k = len(new_target["layers"])
-                loss = sum(new_target["layers"][n]["areal_density"] * new_target["layers"][n]["stopping"] for n in range(k))
-                E_in = energy - loss
-                print(f'--- Layer #{i}, E in: {E_in:.6f} keV')
-
-            if E_in <= 0:
-                partDidntEnterLayer = True
+        # Pick a power-of-two segment count that satisfies the stopping tolerance.
+        while current_energy > 0:
+            stopping_in, stopping_out = stopping_at_layer_bounds(
+                original_layer, current_energy, segment_ad
+            )
+            max_stopping = max(abs(stopping_in), abs(stopping_out))
+            relative_change = (
+                abs(stopping_in - stopping_out) / max_stopping
+                if max_stopping > 0
+                else 0.0
+            )
+            if relative_change <= relative_tolerance:
                 break
-            S_in = calc_stopping_cross_section(layer, E_in, model)
-            print(f"IN - Energy: {E_in:.3f} keV & Stopping: {S_in:.6f} keV/TFU")
-            E_out = E_in - layer["areal_density"] * S_in
+            segment_count *= 2
+            segment_ad = original_ad / segment_count
+        print(f"Layer {original_index + 1}: Stopping cross section judged accurate with {segment_count} segments")
 
-            if E_out < 0:
-                E_out = 0
-                S_out = 0.000001
+        # Keep the sum of the segment thicknesses equal to the source thickness.
+        for segment_index in range(segment_count):
+            segment = copy.deepcopy(original_layer)
+            segment_thickness = (
+                original_ad - segment_ad * (segment_count - 1)
+                if segment_index == segment_count - 1
+                else segment_ad
+            )
+            segment["areal_density"] = segment_thickness
+
+            if current_energy <= 0:
+                stopping_in = 0.0
+                stopping_out = 0.0
+                segment["stopping"] = 0.0
             else:
-                S_out = calc_stopping_cross_section(layer, E_out, model)
-            print(f'OUT - Energy: {E_out:.3f} keV & Stopping: {S_out:.6f} keV/TFU')
+                stopping_in, stopping_out = stopping_at_layer_bounds(
+                    segment, current_energy, segment_thickness
+                )
+                segment["stopping"] = (stopping_in + stopping_out) / 2
+                current_energy -= segment_thickness * segment["stopping"]
 
-            # Checking for variation between the stopping cross sections on entry VS on exit
-            if abs(S_in - S_out)/max(abs(S_in), abs(S_out)) > percentage/100.0:
-                print("Layer too thick, cutting")
-                layer["areal_density"] /= 2
-                ctr+=1
-            else:
-                layer["stopping"] = (S_in + S_out) / 2 # No segmentation required, assigning stopping cross section (mid layer approx)
-                print(f'Final Stopping: {layer["stopping"]:.9f} keV/TFU')
-
-        #NbrDaughter = 2**ctr
-        if ctr ==2:
-            Count = 2
-        else:
-            Count = max(1,(ctr-1)**2)
-
-        daughterLayers_by_layer.append(Count) # Count: Number of daughter layers from parent layer
-        index += ctr
-
-        # Segmentation sequence
-        for k in range(Count):
-            new_target["layers"].append(copy.deepcopy(target["layers"][i]))
-
-        # Assigning stopping cross sections to the segmented target
-        for k in range(Count):
-            nbr = sum(daughterLayers_by_layer[:i])
-            if k == 0:
-                if partDidntEnterLayer:
-                    new_target["layers"][index]["stopping"] = 0
-
-            loss = sum(new_target["layers"][n]["areal_density"] * new_target["layers"][n]["stopping"] for n in range(nbr+k))
-            E_in = energy - loss
-            if E_in <= 0 or partDidntEnterLayer: # If the particle doesn't reach the start of layer, putting stopping cross section to 0
-                new_target["layers"][k+nbr]["stopping"] = 0
-                continue
-
-            S_in = calc_stopping_cross_section(new_target["layers"][nbr+k], E_in, model)
-            E_out = E_in - new_target["layers"][k+nbr]["areal_density"] * S_in
-            if E_out < 0:
-                E_out = 0
-                S_out = 0.000001
-            else:
-                S_out = calc_stopping_cross_section(new_target["layers"][k+nbr], E_out, model)
-
-            new_target["layers"][k+nbr]["stopping"] = (S_in + S_out)/2
+            new_target["layers"].append(segment)
+            print(
+                f"Target layer #{original_index + 1}.{segment_index + 1} "
+                f"({segment_thickness:.3f} TFU), S = {segment['stopping']:.6f} keV/TFU "
+                f"(S_in = {stopping_in:.6f}, S_out = {stopping_out:.6f})"
+            )
 
     return new_target
 

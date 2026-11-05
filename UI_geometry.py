@@ -20,6 +20,10 @@ def create_widgets(self):
         target_menu.add_command(label="Load standard", command=self.load_std)
         target_menu.add_command(label="Save standard", command=lambda: self.save_json(target_type='std'))
 
+        reaction_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Reaction", menu=reaction_menu)
+        reaction_menu.add_command(label="Reaction settings", command=self.open_reaction_settings)
+
         plot_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Plot", menu=plot_menu)
         plot_menu.add_command(label="Rescale excitation curve", command=self.rescale_excitation_curve)
@@ -38,7 +42,7 @@ def create_widgets(self):
         self.show_chi_energy_bounds_bool.trace_add("write", self.update_chi_energy_bounds_menu_label)
         plot_menu.add_separator()
         plot_menu.add_command(label="Save simulated curve data", command=self.save_sim_curve_txt)
-        plot_menu.add_command(label="Load sim curve as exp curve", command=self.generate_exp_from_sim)
+        plot_menu.add_command(label="Load Sim curve as Exp curve", command=self.generate_exp_from_sim)
         plot_menu.add_separator()
         plot_menu.add_command(label="Remove experimental curve", command=self.on_remove_exp)
         plot_menu.add_command(label="Remove simulated curve", command=self.on_remove_sim)
@@ -59,8 +63,9 @@ def create_widgets(self):
         style.configure("Center.TMenubutton", font=("Segoe UI", 9), justify="center")
         ##################################################################
         # Left Frame
-        self.left_frame = ttk.Frame(self.main_frame,width=150)
+        self.left_frame = ttk.Frame(self.main_frame, width=260)
         self.left_frame.pack(side='left',fill='y', expand=False, padx=5, pady=5)
+        self.left_frame.pack_propagate(False)
 
         self.import_button = ttk.Button(self.left_frame, text="Import excitation curve", width=20,command=self.load_curve)
         self.import_button.pack(fill="x",padx=10,pady=(10,0))
@@ -73,7 +78,7 @@ def create_widgets(self):
 
         self.run_menu = tk.Menu(self, tearoff=0)
         self.run_menu.add_command(label="Run Calculation", command=lambda: self.start_calc(mode="normal"))
-        self.run_menu.add_command(label="Run Calculation (custom energy range)", command=lambda: self.start_calc(mode="custom"))
+        self.run_menu.add_command(label="Run Calculation (Custom energy range)", command=lambda: self.start_calc(mode="custom"))
         self.run_menu.add_command(label="Run Calculation (Loaded curve energy)", command=lambda: self.start_calc(mode="loaded_curve"))
 
         self.run_menu_button = ttk.Button(self.run_frame, text='▼', width=3, command=self._post_run_menu, style="Center.TButton")
@@ -96,14 +101,23 @@ def create_widgets(self):
         self.std_frame.pack(fill='x', expand=False, padx=10, pady=5)
         self.std_frame.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(self.std_frame, text="Yield (Count/µC):").grid(row=0, column=0, padx=(10, 0), pady=5, ipadx=10, sticky='e')
+        self.manual_k_label = ttk.Label(self.std_frame, text="K factor (opt.):")
+        self.manual_k_label.grid(row=0, column=0, padx=(10, 0), pady=(5,0), ipadx=10, sticky='w')
+        self.manual_k_entry = ttk.Entry(self.std_frame, width=10)
+        self.manual_k_entry.grid(row=0, column=1, padx=10, pady=(5,0), sticky='we')
+        self.manual_k_entry.bind("<KeyRelease>", self.on_manual_k_key_release)
+        self.manual_k_entry.bind("<FocusOut>", self.on_manual_k_focus_out)
+        self.manual_k_entry.bind("<Return>", self.on_manual_k_focus_out)
+
+        self.std_yield_label = ttk.Label(self.std_frame, text="Yield (Count/µC):")
+        self.std_yield_label.grid(row=1, column=0, padx=(10, 0), pady=5, ipadx=10, sticky='w')
         self.std_Yield_entry = ttk.Entry(self.std_frame, width=10)
-        self.std_Yield_entry.grid(row=0, column=1, padx=10, pady=(5,0), sticky='we')
+        self.std_Yield_entry.grid(row=1, column=1, padx=10, pady=(5,0), sticky='we')
 
         self.load_std_button = ttk.Button(self.std_frame, text='Load', command=self.load_std)
-        self.load_std_button.grid(row=1, column=0, padx=(10, 0), pady=5, sticky='we')
+        self.load_std_button.grid(row=2, column=0, padx=(10, 0), pady=5, sticky='we')
         self.save_std_button = ttk.Button(self.std_frame, text='Save', width=10, command=lambda: self.save_json(target_type='std'))
-        self.save_std_button.grid(row=1, column=1, padx=10, pady=5, sticky='we')
+        self.save_std_button.grid(row=2, column=1, padx=10, pady=5, sticky='we')
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Options checkbox
@@ -122,10 +136,15 @@ def create_widgets(self):
             width=10,
         )
         self.stopping_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='we')
-        self.stopping_model_combobox.set("SRIM")
+        self.stopping_model_combobox.set("SCS-25-Solid")
 
         ttk.Label(self.options_frame1, text="Straggling model:").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='w')
-        self.straggling_model_combobox = ttk.Combobox(self.options_frame1, values=["Rud", "Rud corr", "Bohr"], state="readonly", width=10)
+        self.straggling_model_combobox = ttk.Combobox(
+            self.options_frame1,
+            values=["None", "Rud", "Rud corr", "Bohr"],
+            state="readonly",
+            width=10,
+        )
         self.straggling_model_combobox.grid(row=1, column=1, padx=5, pady=(5,0), sticky='we')
         self.straggling_model_combobox.set("Rud corr")
         
@@ -142,7 +161,7 @@ def create_widgets(self):
         self.options_frame2.pack(fill='x', expand=False, padx=5, pady=0)
 
         self.Doppler_bool = tk.BooleanVar(value=True)
-        self.options_doppler_entry = ttk.Checkbutton(self.options_frame2,text="Doppler", variable=self.Doppler_bool)
+        self.options_doppler_entry = ttk.Checkbutton(self.options_frame2,text="Quantum Doppler", variable=self.Doppler_bool)
         self.options_doppler_entry.pack(padx=5, pady=(0,0),anchor='w')
 
         self.broadSave_bool = tk.BooleanVar(value=False)

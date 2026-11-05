@@ -9,19 +9,24 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolb
 import os
 import subprocess
 import sys
+import importlib
+import time
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 import threading
 import traceback
 from typing import Sequence, Literal
 
 from class_models import Element, Layer, Target
+from settings_config import ensure_settings
 import UI_geometry
-import mod2
-import mod3 
-import mod4        
-from energy_range_dialog import EnergyRangeDialog
-from settings_dialog import SettingsDialog
-from import_dialogs import SheetSelectionDialog, TableSelectionDialog
+import calc_stopping
+import calc_broadening 
+import calc_curve        
+from dialog_energy_range import EnergyRangeDialog
+from dialog_settings import SettingsDialog
+from dialog_reaction import ReactionDialog
+from dialog_import import SheetSelectionDialog, TableSelectionDialog
 
 def count_datapoints(df_raw: pd.DataFrame, header_row: int) -> int:
     # Count consecutive non-empty rows after the header
@@ -39,7 +44,7 @@ class GUI_App(tk.Tk):
         super().__init__()
 
         self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
-        self.settings_path = os.path.join(self.script_dir, 'settings.json')
+        self.settings_path = ensure_settings()
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
         self.title("HyProC")
@@ -70,6 +75,7 @@ class GUI_App(tk.Tk):
         self.chi_energy_bounds_history: list[tuple[float | None, float | None] | None] = []
 
         UI_geometry.create_widgets(self)
+        self._initialize_standard_controls()
         self.refresh_layer_list()
         self.refresh_element_list() 
         self.refresh_Std_list()
@@ -81,6 +87,69 @@ class GUI_App(tk.Tk):
         x = self.run_menu_button.winfo_rootx()
         y = self.run_menu_button.winfo_rooty() + self.run_menu_button.winfo_height()
         self.run_menu.post(x, y)    
+
+    def _initialize_standard_controls(self)->None:
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+
+        self._standard_widgets = [
+            *descendants(self.std_frame),
+            *descendants(self.Std_frame),
+        ]
+        self._manual_k_exempt_widgets = {self.manual_k_label, self.manual_k_entry}
+        self.on_manual_k_change()
+
+    def _format_manual_k_display(self, value: str)->str:
+        try:
+            rounded_value = Decimal(value).quantize(Decimal("0.000000001"))
+        except InvalidOperation:
+            return value
+        formatted_value = format(rounded_value, "f")
+        if "." in formatted_value:
+            formatted_value = formatted_value.rstrip("0").rstrip(".")
+        return formatted_value
+
+    def on_manual_k_key_release(self, event=None)->None:
+        if (
+            getattr(self, "_manual_k_display_value", None) is not None
+            and self.manual_k_entry.get() != self._manual_k_display_value
+        ):
+            self._manual_k_original_value = None
+            self._manual_k_display_value = None
+        self.on_manual_k_change()
+
+    def on_manual_k_focus_out(self, event=None)->None:
+        current_value = self.manual_k_entry.get()
+        if (
+            getattr(self, "_manual_k_display_value", None) != current_value
+            or getattr(self, "_manual_k_original_value", None) is None
+        ):
+            self._manual_k_original_value = current_value
+            self._manual_k_display_value = self._format_manual_k_display(current_value)
+            if self._manual_k_display_value != current_value:
+                self.manual_k_entry.delete(0, tk.END)
+                self.manual_k_entry.insert(0, self._manual_k_display_value)
+        self.on_manual_k_change()
+
+    def on_manual_k_change(self, event=None)->None:
+        manual_k_enabled = bool(self.manual_k_entry.get().strip())
+        for widget in self._standard_widgets:
+            if widget in self._manual_k_exempt_widgets:
+                continue
+            if isinstance(widget, ttk.Widget):
+                if manual_k_enabled:
+                    widget.state(["disabled"])
+                else:
+                    widget.state(["!disabled"])
+            elif isinstance(widget, tk.Listbox):
+                widget.configure(state="disabled" if manual_k_enabled else "normal")
+        self.std_frame.state(["disabled"] if manual_k_enabled else ["!disabled"])
+        self.TargetStd_notebook.tab(
+            self.Std_frame,
+            state="disabled" if manual_k_enabled else "normal",
+        )
     
     def load_Z2(self, settings_path)->int:
         """
@@ -691,13 +760,13 @@ class GUI_App(tk.Tk):
                 selected_layer = layers[0]
 
             self.std_target["layers"] = [selected_layer]
-            self.std_target["layers"][0]["areal_density"] = 1500.0
+            self.std_target["layers"][0]["areal_density"] = 1750.0
 
             stopping_model = self._get_stopping_model()
-            if stopping_model == "SRIM" and not mod2.check_srim_path(self.settings_path):
+            if stopping_model == "SRIM" and not calc_stopping.check_srim_path(self.settings_path):
                 messagebox.showerror("Loading standard failed", "SRIM path not found.\n\nPlease check your settings.")
                 return
-            self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_cross_section(
+            self.std_target["layers"][0]["stopping"] = calc_stopping.calc_stopping_cross_section(
                 self.std_target["layers"][0], 6385, stopping_model
             )
 
@@ -779,10 +848,21 @@ class GUI_App(tk.Tk):
         if not file_path:
             return
 
+        try:
+            with open(self.settings_path, "r", encoding="utf-8") as file:
+                settings = json.load(file)
+            reaction = {key: settings["reaction"][key] for key in ("Z1", "A1", "Z2", "A2")}
+            resonance = {key: settings["resonance"][key] for key in ("E_R", "Gamma", "Sigma")}
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+            messagebox.showerror("Save Simulation", f"Couldn't read the reaction settings.\n\n{e}")
+            return
+
         simulation = {
             "format": "HyProC simulation",
             "version": 1,
             "saved_at": datetime.now().isoformat(timespec="seconds"),
+            "reaction": reaction,
+            "resonance": resonance,
             "target": self.target,
             "standard": self.std_target,
             "experimental_curve": {
@@ -799,6 +879,7 @@ class GUI_App(tk.Tk):
             "chi_squared_start": self.start_ctr,
             "options": {
                 "standard_yield": self.std_Yield_entry.get(),
+                "manual_k_factor": self.manual_k_entry.get(),
                 "beam_width": self.beamSD_entry.get(),
                 "offset": self.offset_entry.get(),
                 "stopping_model": self.stopping_model_combobox.get(),
@@ -928,6 +1009,9 @@ class GUI_App(tk.Tk):
                 raise ValueError("Energy range step size must be a finite positive number.")
             if not all(isinstance(options[key], str) for key in ("standard_yield", "beam_width", "offset", "straggling_model")):
                 raise ValueError("Saved calculation input values must be strings.")
+            manual_k_factor = options.get("manual_k_factor", "")
+            if not isinstance(manual_k_factor, str):
+                raise ValueError("Saved manual K factor must be a string.")
             if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
                 raise ValueError("Saved calculation flags must be boolean values.")
             autoscale = options.get("autoscale", True)
@@ -957,9 +1041,31 @@ class GUI_App(tk.Tk):
             chi_start = data.get("chi_squared_start", 0)
             if not isinstance(chi_start, int):
                 raise ValueError("Chi-squared history position must be an integer.")
+            reaction = data.get("reaction")
+            resonance = data.get("resonance")
+            if (reaction is None) != (resonance is None):
+                raise ValueError("Saved reaction and resonance settings must both be present.")
+            if reaction is not None:
+                reaction, resonance = self._validate_simulation_physics(reaction, resonance)
         except (OSError, json.JSONDecodeError, AttributeError, KeyError, TypeError, ValueError) as e:
             messagebox.showerror("Load Simulation", f"Couldn't load the simulation.\n\n{e}")
             return
+
+        if reaction is not None:
+            try:
+                with open(self.settings_path, "r", encoding="utf-8") as file:
+                    current_settings = json.load(file)
+                current_settings["reaction"].update(reaction)
+                current_settings["resonance"].update(resonance)
+                with open(self.settings_path, "w", encoding="utf-8") as file:
+                    json.dump(current_settings, file, indent=4)
+                self.reload_reaction_settings()
+            except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+                messagebox.showerror(
+                    "Load Simulation",
+                    f"Couldn't apply the simulation's reaction settings.\n\n{e}",
+                )
+                return
 
         self.target = target
         self.std_target = standard
@@ -977,6 +1083,11 @@ class GUI_App(tk.Tk):
 
         self.std_Yield_entry.delete(0, tk.END)
         self.std_Yield_entry.insert(0, options["standard_yield"])
+        self._manual_k_original_value = None
+        self._manual_k_display_value = None
+        self.manual_k_entry.delete(0, tk.END)
+        self.manual_k_entry.insert(0, manual_k_factor)
+        self.on_manual_k_change()
         self.beamSD_entry.delete(0, tk.END)
         self.beamSD_entry.insert(0, options["beam_width"])
         self.offset_entry.delete(0, tk.END)
@@ -1005,23 +1116,81 @@ class GUI_App(tk.Tk):
         self.TargetStd_notebook.select(self.target_frame)
         print(f"Simulation loaded from: {file_path}")
 
+    @staticmethod
+    def _validate_simulation_physics(
+        reaction: object,
+        resonance: object,
+    )->tuple[dict[str, str], dict[str, float]]:
+        if not isinstance(reaction, dict) or not isinstance(resonance, dict):
+            raise ValueError("Saved reaction and resonance settings must be JSON objects.")
+
+        reaction_values: dict[str, str] = {}
+        for key in ("Z1", "A1", "Z2", "A2"):
+            value = reaction.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                raise ValueError(f"Saved reaction value {key} must be an integer.")
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(f"Saved reaction value {key} must be an integer.") from exc
+            if str(int_value) != str(value).strip():
+                raise ValueError(f"Saved reaction value {key} must be an integer.")
+            reaction_values[key] = str(int_value)
+
+        for z_key, a_key in (("Z1", "A1"), ("Z2", "A2")):
+            z_value = int(reaction_values[z_key])
+            a_value = int(reaction_values[a_key])
+            if not 1 <= z_value <= 118 or a_value <= 0:
+                raise ValueError(f"Saved {z_key} must be between 1 and 118 and {a_key} must be positive.")
+            isotope_mass = periodictable.elements[z_value][a_value].mass
+            if isotope_mass is None or not np.isfinite(float(isotope_mass)):
+                raise ValueError(f"No isotope mass is available for {z_key}={z_value}, {a_key}={a_value}.")
+
+        resonance_values: dict[str, float] = {}
+        for key in ("E_R", "Gamma", "Sigma"):
+            try:
+                value = float(resonance[key])
+            except (KeyError, TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(f"Saved resonance value {key} must be numeric.") from exc
+            if not np.isfinite(value) or value <= 0:
+                raise ValueError(f"Saved resonance value {key} must be finite and greater than zero.")
+            resonance_values[key] = value
+        return reaction_values, resonance_values
+
     def generate_exp_from_sim(self)->None:
-        if not hasattr(self, "sim_curve"):
+        sim_energy = getattr(self, "sim_energy", [])
+        sim_curve = getattr(self, "sim_curve", [])
+        if not sim_energy or not sim_curve:
             messagebox.showerror("Generate curve","No simulation curve data to load as experimental curve.")
             return
-        self.ec_yield = self.sim_curve
-        self.ec_yErr = np.zeros(len(self.exp_energy))  # Assuming no error bars for the generated curve
-        self.update_exc_plot()
+        if len(sim_energy) != len(sim_curve):
+            messagebox.showerror("Generate curve", "The simulated energy and yield data do not have matching lengths.")
+            return
+        self.exp_energy = sim_energy.copy()
+        self.ec_yield = sim_curve.copy()
+        self.ec_yErr = [0.0] * len(self.exp_energy)
+        self.update_exc_plot(preserve_view=False)
     
     def on_remove_exp(self)->None:
+        x_limits = self.ax0.get_xlim()
+        y_limits = self.ax0.get_ylim()
         self.ec_yield = []
         self.ec_yErr = []
-        self.update_exc_plot()
+        self.exp_energy = []
+        self.update_exc_plot(preserve_view=False)
+        self.ax0.set_xlim(x_limits)
+        self.ax0.set_ylim(y_limits)
+        self.canvas.draw()
 
     def on_remove_sim(self)->None:
+        x_limits = self.ax0.get_xlim()
+        y_limits = self.ax0.get_ylim()
         self.sim_curve = []
         self.sim_energy = []
-        self.update_exc_plot()
+        self.update_exc_plot(preserve_view=False)
+        self.ax0.set_xlim(x_limits)
+        self.ax0.set_ylim(y_limits)
+        self.canvas.draw()
 
     def reset_chi_history(self)->None:
         self.chi_val = []
@@ -1034,8 +1203,22 @@ class GUI_App(tk.Tk):
         dialog = SettingsDialog(self, self.settings_path)
         dialog.show()
 
+    def open_reaction_settings(self)->None:
+        ReactionDialog(self, self.settings_path)
+
+    def reload_reaction_settings(self)->None:
+        with open(self.settings_path, "r", encoding="utf-8") as file:
+            settings = json.load(file)
+        self.Z2 = int(settings["reaction"]["Z2"])
+        importlib.reload(calc_stopping)
+        importlib.reload(calc_broadening)
+        importlib.reload(calc_curve)
+
     def open_manual(self):
-        manual_path = os.path.join(self.script_dir, "HyProC_Manual.pdf")
+        manual_path = os.path.join(self.script_dir, "manual", "HyProC_Manual.pdf")
+        if not os.path.isfile(manual_path):
+            messagebox.showerror("Manual not found", f"Could not find the manual:\n{manual_path}")
+            return
         if sys.platform == "win32":
             os.startfile(manual_path)
         elif sys.platform == "darwin":
@@ -1107,18 +1290,18 @@ class GUI_App(tk.Tk):
         """
         Calculates the K factor (experimental set-up detection efficiency) based on the standard description.
         """      
-        energy = 6550 
-        self.std_target["layers"][0]["stopping"] = mod2.calc_stopping_cross_section(
+        energy = calc_broadening.E_R + 100 * calc_broadening.Gamma
+        self.std_target["layers"][0]["stopping"] = calc_stopping.calc_stopping_cross_section(
             self.std_target["layers"][0], energy, stopping_model
         )
-        xc,x,y, layers_contribution, outOfTarget = mod3.broadening(energy, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
+        xc,x,y, layers_contribution, outOfTarget = calc_broadening.broadening(energy, self.std_target, beamWidth, DopplerYesNo, straggling_model, False, None)
 
         #print(f"DEBUG: Broadening output shapes: x={np.array(x).shape}, y={np.array(y).shape}")
         #print(f"DEBUG: x range: [{np.min(x):.3f}, {np.max(x):.3f}], y range: [{np.min(y):.6f}, {np.max(y):.6f}]")
         #print(f"DEBUG: x finite: {np.all(np.isfinite(x))}, y finite: {np.all(np.isfinite(y))}")
         
         try:
-            value = mod4.compute_yield(self.std_target, x, y)
+            value = calc_curve.compute_yield(self.std_target, x, y)
         except ValueError as e:
             print(f"DEBUG: compute_yield raised ValueError: {e}")
             raise
@@ -1147,14 +1330,14 @@ class GUI_App(tk.Tk):
 
         # Checking settings: Can SRIM (if selected) & save paths be accessed?
         stopping_model = self._get_stopping_model()
-        if stopping_model == "SRIM" and not mod2.check_srim_path(self.settings_path):
+        if stopping_model == "SRIM" and not calc_stopping.check_srim_path(self.settings_path):
             messagebox.showerror("Calculation failed", "SRIM path not found.\n\nPlease check your settings.")
             return
         with open(self.settings_path, 'r', encoding="utf-8") as f:
             path = json.load(f)["save_path"]
-            found = os.path.exists(path)
+            found = bool(path.strip()) and os.path.isdir(path)
         if not found:
-            messagebox.showerror("Calculation failed", "Save path not found.\n\nPlease check your settings.")
+            messagebox.showerror("Calculation failed", "Please configure a valid data save folder in Settings.")
             return
         
         # Retrieving info from GUI
@@ -1163,11 +1346,29 @@ class GUI_App(tk.Tk):
         except:
             messagebox.showerror("Calculation failed", "No beam width value was entered.")
             return 
-        try:
-            std_yield = float(self.std_Yield_entry.get())
-        except:
-            messagebox.showerror("Calculation failed", "No standard yield value was entered.")
-            return
+        manual_k_text = self.manual_k_entry.get().strip()
+        if (
+            getattr(self, "_manual_k_display_value", None) == manual_k_text
+            and getattr(self, "_manual_k_original_value", None) is not None
+        ):
+            manual_k_text = self._manual_k_original_value.strip()
+        if manual_k_text:
+            try:
+                K = float(manual_k_text)
+            except ValueError:
+                messagebox.showerror("Calculation failed", "Manual K factor must be a valid number.")
+                return
+            if not np.isfinite(K) or K <= 0:
+                messagebox.showerror("Calculation failed", "Manual K factor must be a finite number greater than zero.")
+                return
+            use_manual_k = True
+        else:
+            use_manual_k = False
+            try:
+                std_yield = float(self.std_Yield_entry.get())
+            except ValueError:
+                messagebox.showerror("Calculation failed", "No standard yield value was entered.")
+                return
         DopplerYesNo = self.Doppler_bool.get()
         SaveBroadData = self.broadSave_bool.get()
         trackTargetChange = self.TrackTargetChange_bool.get()
@@ -1182,10 +1383,11 @@ class GUI_App(tk.Tk):
         chi_energy_min, chi_energy_max = chi_energy_bounds
 
         # Check for the element of interest in the standard
-        percent_at = self.std_target["layers"][0].find_element(Z=self.Z2)
-        if percent_at is None or percent_at == 0:
-            messagebox.showerror("Calculation failed", f"Standard calculation error.\n\nNo {periodictable.elements[self.Z2].name.capitalize()} in the standard.")
-            return
+        if not use_manual_k:
+            percent_at = self.std_target["layers"][0].find_element(Z=self.Z2)
+            if percent_at is None or percent_at == 0:
+                messagebox.showerror("Calculation failed", f"Standard calculation error.\n\nNo {periodictable.elements[self.Z2].name.capitalize()} in the standard.")
+                return
 
         # Decide which energy range to use for the calculation
         if use_loaded_curve_energies:
@@ -1222,20 +1424,24 @@ class GUI_App(tk.Tk):
                     for energy in self._generate_energy_values(self.e_min, self.e_max, self.energy_step_size)
                 ]
 
+        calculation_start_time = time.perf_counter()
         print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
 
         # Calculating K factor
-        try:  
-            if self.std_target["layers"][0].normalize():
-                self.refresh_Std_list()
-                print("Standard layer normalised.")
-            K = self.std_calc(std_yield, beamWidth, DopplerYesNo, straggling_model, stopping_model)
-        except Exception as e:
-            messagebox.showerror(
-                "Calculation failed",
-                f"Standard calculation error.\n\nMake sure all the standards information were correctly entered.\n\n{e}",
-            )
-            raise Exception("Standard calculation failed.") from e
+        if not use_manual_k:
+            try:
+                if self.std_target["layers"][0].normalize():
+                    self.refresh_Std_list()
+                    print("Standard layer normalised.")
+                K = self.std_calc(std_yield, beamWidth, DopplerYesNo, straggling_model, stopping_model)
+            except Exception as e:
+                messagebox.showerror(
+                    "Calculation failed",
+                    f"Standard calculation error.\n\nMake sure all the standards information were correctly entered.\n\n{e}",
+                )
+                raise Exception("Standard calculation failed.") from e
+        else:
+            print(f"Using manually provided K factor: {K}")
         
         try:
             self.run_button.config(text="Working...", state="disabled")
@@ -1243,10 +1449,9 @@ class GUI_App(tk.Tk):
 
             # Normalising target
             self.target.normalize_all_layers()
-            size_before = len(self.target["layers"])
-            self.target = mod2.assign_stopping(self.target, max(energy_range), stopping_model)
             self.refresh_layer_list()
-            self.refresh_element_list()            
+            self.refresh_element_list()
+            calculation_target = calc_stopping.assign_stopping(self.target, min(energy_range), stopping_model)
 
             # Generating paths for saving data
             with open(self.settings_path, 'r', encoding="utf-8") as f:
@@ -1275,11 +1480,11 @@ class GUI_App(tk.Tk):
                 else:
                     savepath = None
 
-                xc, x, y, layers_contribution, outOfTarget = mod3.broadening(energy, self.target, beamWidth, DopplerYesNo, straggling_model, SaveBroadData, savepath)
+                xc, x, y, layers_contribution, outOfTarget = calc_broadening.broadening(energy, calculation_target, beamWidth, DopplerYesNo, straggling_model, SaveBroadData, savepath)
                 #print(f"DEBUG: Broadening output shapes: x={np.array(x).shape}, y={np.array(y).shape}")
                 #print(f"DEBUG: x range: [{np.min(x):.3f}, {np.max(x):.3f}], y range: [{np.min(y):.6f}, {np.max(y):.6f}]")
 
-                integral_yield = mod4.compute_yield(self.target, x, y)
+                integral_yield = calc_curve.compute_yield(calculation_target, x, y)
                 #print('K*integral_yield: ', K, '*', integral_yield, '=', K * integral_yield)
                 value = K*integral_yield
                 self.sim_energy.append(energy+offset)
@@ -1294,7 +1499,7 @@ class GUI_App(tk.Tk):
                     if (chi_energy_min is None or energy >= chi_energy_min)
                     and (chi_energy_max is None or energy <= chi_energy_max)
                 ]
-                chi_squared = mod4.chi_squared_test(
+                chi_squared = calc_curve.chi_squared_test(
                     [self.exp_energy[index] for index in selected_points],
                     [self.ec_yield[index] for index in selected_points],
                     self.sim_energy,
@@ -1313,10 +1518,9 @@ class GUI_App(tk.Tk):
 
             self.runNbr+=1 # Run number
 
-            if len(self.target["layers"]) != size_before:
-                messagebox.showinfo("Calculations","At least one layer has been segmented to more accurately describe stopping cross sections.")
-
-            print("*-*-*-*-*-*-* Calculation completed *-*-*-*-*-*-*") 
+            print("*-*-*-*-*-*-* Calculation completed *-*-*-*-*-*-*")
+            elapsed_time = time.perf_counter() - calculation_start_time
+            print(f"Calculation took {elapsed_time:.2f} seconds.")
         except Exception as e:
             print(f"An error occurred: {type(e).__name__}: {e}")
             traceback.print_exc()
@@ -1333,7 +1537,7 @@ class GUI_App(tk.Tk):
         self.Z2_profile = None
     
     def plot_Z2_profile(self)->None:
-        x,y = mod4.cH_make(self.target)
+        x,y = calc_curve.cH_make(self.target)
 
         # --- If the window already exists, bring it to the front ---
         if self.Z2_profile is not None and self.Z2_profile.winfo_exists():

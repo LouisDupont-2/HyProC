@@ -7,10 +7,11 @@ from numpy.typing import NDArray
 import os
 
 from class_models import Element, Layer, Target
+from settings_config import ensure_settings
 
 # Load settings
 script_dir = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(script_dir, 'settings.json')
+settings_path = ensure_settings()
 with open(settings_path, 'r', encoding="utf-8") as f:
     settings = json.load(f)
 
