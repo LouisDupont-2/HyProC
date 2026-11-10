@@ -1,12 +1,14 @@
 # HyProC
 
-HyProC is a Python desktop application for modelling hydrogen concentration
-profiles from resonant nuclear reaction analysis excitation curves. Build a
+HyProC is a Python application for modelling hydrogen concentration
+profiles from resonant nuclear reaction analysis (RNRA) excitation curves. Build a
 layered target, simulate its excitation curve, and compare it with experimental
 measurements using plots and chi-squared history.
 
 For the calculation models and detailed controls, see the
 [user manual](manual/HyProC_Manual.pdf).
+
+![Main](/pics/HyProC_GUI.png?raw=true "Optional Title")
 
 ## Features
 
