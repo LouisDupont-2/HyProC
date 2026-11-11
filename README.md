@@ -1,27 +1,13 @@
 # HyProC
 
-HyProC is a Python application for modelling hydrogen concentration
-profiles from resonant nuclear reaction analysis (RNRA) excitation curves. Build a
-layered target, simulate its excitation curve, and compare it with experimental
-measurements using plots and chi-squared history.
+HyProC (Hydrogen Profiling by Convultion) is a Python code that simulates Resonant Nuclear Reaction Analysis (RNRA) excitation curves to do hydrogen depth profiling (other elements can also be depth-profiled but it isn't the code's current speciality). Build a layered target, simulate its excitation curve, and compare it with experimental measurements using plots and chi-squared history.
+
+This program was first developped in the context of a [Master Thesis](https://researchportal.unamur.be/en/studentTheses/profilage-dhydrog%C3%A8ne-par-rnra/) at the [University of Namur](https://www.unamur.be/en) and is now one of the focus point of a [joint PhD](https://research.kuleuven.be/portal/en/project/3E260097) between the University of Namur and [KU Leuven](https://www.kuleuven.be/kuleuven).
 
 For the calculation models and detailed controls, see the
 [user manual](manual/HyProC_Manual.pdf).
 
-![Main](/pics/HyProC_GUI.png?raw=true "Optional Title")
-
-## Features
-
-- Create, edit, save, and load layered targets and standards.
-- Configure the reaction isotopes and resonance parameters.
-- Calculate stopping cross sections with the bundled SCS-25-Solid model or an
-  external SRIM installation.
-- Configure beam broadening, Quantum Doppler, and straggling options.
-- Import experimental excitation curves from Excel or text files.
-- Normalize using a measured standard or a manually supplied K factor.
-- Compare simulated and experimental curves, with an optional energy window
-  for chi-squared evaluation.
-- Save and restore simulation state and export simulated curve data.
+![Main](/pics/HyProC_GUI.png?raw=true "HyProC's user interface")
 
 ## Installation
 
@@ -54,6 +40,21 @@ These commands use the environment's Python directly, so activating the
 environment is optional. The dependency list comes from the current source;
 the repository does not yet provide a pinned dependency file.
 
+## Basic workflow
+
+1. Open **Reaction** and define the projectile/target atomic number and mass number, as well as the resonance parameters of your measurement (energy, width and peak cross-section).
+2. Create or load the layered target.
+3. Create or load a standard and enter its measured yield, or enter a manual
+   K factor.
+4. Choose the stopping model and calculation options.
+5. Load an experimental excitation curve, or define a custom energy range.
+6. Run the calculation and compare the curves. Adjust the target and options
+   as needed, using the chi-squared history to track the comparisons.
+7. Save the simulation to resume it later, or export the simulated curve.
+
+See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
+details, and the full workflow.
+
 ## First-run settings
 
 HyProC automatically creates `settings.json` from
@@ -70,22 +71,6 @@ Open **Settings** and configure:
 
 Your `settings.json` is ignored by Git. Edit the example file only when changing
 the defaults distributed to new users.
-
-## Basic workflow
-
-1. Open **Reaction** and check the projectile, target isotope, and resonance
-   parameters for your measurement.
-2. Create or load the layered target.
-3. Create or load a standard and enter its measured yield, or enter a manual
-   K factor.
-4. Choose the stopping model and calculation options.
-5. Load an experimental excitation curve, or define a custom energy range.
-6. Run the calculation and compare the curves. Adjust the target and options
-   as needed, using the chi-squared history to track the comparisons.
-7. Save the simulation to resume it later, or export the simulated curve.
-
-See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
-details, and the full workflow.
 
 ## Repository layout
 
@@ -106,3 +91,7 @@ details, and the full workflow.
 - [User manual](manual/HyProC_Manual.pdf)
 - [Changelog](CHANGELOG.md)
 - [GNU General Public License, version 3](LICENSE)
+
+## Contact
+
+louis.dupont-2@unamur.be ([LinkedIn](https://www.linkedin.com/in/louis-dupont-33355a2a4/))
