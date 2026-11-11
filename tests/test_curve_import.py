@@ -44,6 +44,12 @@ class CurveImportTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Row 2: Yield"):
             validate_curve(table, table.mapping)
 
+    def test_text_import_keeps_comment_and_blank_line_support(self):
+        table, = self.text_tables("curve.csv", "# run A\n6400,10 # first point\n\n6401,11\n")
+        self.assertEqual(validate_curve(table, table.mapping).yields, [10, 11])
+        table, = self.text_tables("curve.dat", "6400 10\n\n6401 11\n")
+        self.assertEqual(validate_curve(table, table.mapping).yields, [10, 11])
+
     def test_known_columns_use_names_and_keep_uncertainty_aligned(self):
         table, = self.text_tables(
             "curve.csv", "Incertitude,extra,Yield,Energie\n1.2,x,10,6400\n2.3,y,20,6399\n"

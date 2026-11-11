@@ -124,12 +124,17 @@ def _text_rows(stream, extension):
             row = next(reader, None)
             if row is None:
                 return
-            if not row or not row[0].lstrip().startswith("#"):
+            for i, value in enumerate(row):
+                value, comment, _ = value.partition("#")
+                if comment:
+                    row = [*row[:i], value]
+                    break
+            if any(value.strip() for value in row):
                 yield first_line, row
     else:
         for number, line in enumerate(stream, 1):
             content, _, _ = line.partition("#")
-            if content.strip() or not line.lstrip().startswith("#"):
+            if content.strip():
                 if "\t" in content:
                     # Keep empty cells so later values stay in their columns.
                     yield number, content.rstrip("\r\n").split("\t")
@@ -158,11 +163,9 @@ def read_curve_tables(filename, columns):
             for sheet, data in sheets:
                 rows = enumerate(data.itertuples(index=False, name=None), 1)
                 tables.extend(_tables_in_sheet(sheet, rows, names))
-        elif extension in (".csv", ".txt"):
+        else:
             with path.open(encoding="utf-8-sig", newline="") as stream:
                 tables.extend(_tables_in_sheet(path.name, _text_rows(stream, extension), names))
-        else:
-            raise ValueError("Choose an .xlsx, .xls, .csv or .txt curve file.")
     except (ImportError, csv.Error, UnicodeError) as error:
         raise ValueError(f"Cannot read {path.name}: {error}") from error
     if not tables:
