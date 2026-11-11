@@ -10,7 +10,8 @@
     "detected_at": "2026-11-05T15:09:59.412Z"
   },
   "changelog": {
-    "updateUnreleased": true
+    "updateUnreleased": true,
+    "datedUnreleased": true
   },
   "manual": {
     "source": "manual/source/main.tex",

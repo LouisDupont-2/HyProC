@@ -50,6 +50,7 @@ class LoadCurveTest(unittest.TestCase):
     def test_ambiguous_layout_preserves_previous_curve_when_cancelled(self):
         preview, error = self.load("1,6400,8\n2,6401,9\n")
         preview.assert_called_once()
+        self.assertEqual(preview.call_args.args[2], str(self.file))
         preview.return_value.show.assert_called_once()
         error.assert_not_called()
         self.assert_previous_curve()
@@ -75,13 +76,19 @@ class CurvePreviewTest(unittest.TestCase):
             CurveTable("Second", 1, headers, ((2, (1, 6400, 4)),), None, True),
             CurveTable("Second", 5, headers, ((6, (1, 6401, 6)),), None, True),
         ]
-        dialog = CurveImportDialog(root, tables)
+        dialog = CurveImportDialog(root, tables, str(Path("measurements") / "sample.xlsx"))
+        self.assertEqual(dialog.title(), "Import Excitation Curve — sample.xlsx")
         dialog.sheet_picker.current(1)
         dialog._select_sheet()
         dialog.table_picker.current(1)
         dialog._select_table()
         item, = dialog.samples.get_children()
         self.assertEqual(tuple(map(int, dialog.samples.item(item, "values"))), (6, 1, 6401, 6))
+        self.assertEqual(dialog.samples.heading("source_row", "text"), "Source row")
+        self.assertEqual(dialog.samples.heading("data_0", "text"), "Column 1: Index")
+        self.assertEqual(dialog.energy_picker["values"][1:], (
+            "Column 1: Index", "Column 2: Energy", "Column 3: Yield",
+        ))
 
         dialog.energy_picker.current(2)
         dialog.yield_picker.current(2)

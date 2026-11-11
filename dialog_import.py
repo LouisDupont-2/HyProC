@@ -1,3 +1,4 @@
+from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -7,11 +8,12 @@ from curve_import import ColumnMapping, CurveTable, ExperimentalCurve, validate_
 class CurveImportDialog(tk.Toplevel):
     """Preview candidate tables and confirm the columns used for the curve."""
 
-    def __init__(self, parent, tables: list[CurveTable]):
+    def __init__(self, parent, tables: list[CurveTable], file_path: str):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Import Excitation Curve")
+        self.title(f"Import Excitation Curve — {Path(file_path).name}")
+        self.geometry("850x500")
         self.minsize(580, 410)
         self.bind("<Escape>", lambda _event: self.destroy())
         self.result: ExperimentalCurve | None = None
@@ -71,12 +73,16 @@ class CurveImportDialog(tk.Toplevel):
 
     def _select_table(self, _event=None):
         table = self.sheet_tables[self.table_picker.current()]
-        labels = [f"{i + 1}: {header}" if header else f"Column {i + 1}" for i, header in enumerate(table.headers)]
+        labels = [
+            f"Column {number}: {header}" if header else f"Column {number}"
+            for number, header in enumerate(table.headers, start=1)
+        ]
+        column_ids = ["source_row", *(f"data_{i}" for i in range(len(labels)))]
         self.samples.delete(*self.samples.get_children())
-        self.samples.configure(columns=list(range(len(labels) + 1)))
-        for i, label in enumerate(["Row", *labels]):
-            self.samples.heading(i, text=label)
-            self.samples.column(i, width=60 if i == 0 else 135, minwidth=45, stretch=False)
+        self.samples.configure(columns=column_ids)
+        for column_id, label in zip(column_ids, ["Source row", *labels]):
+            self.samples.heading(column_id, text=label)
+            self.samples.column(column_id, width=85 if column_id == "source_row" else 135, minwidth=45, stretch=False)
         for number, row in table.rows[:12]:
             values = ["" if value is None else value for value in (
                 table.value(row, i) for i in range(len(labels))

@@ -64,22 +64,34 @@ def _configured_header(row, names):
     return bool(matches["energy"] and matches["yield"])
 
 
-def _guess_header(block):
-    if len(block) < 2:
-        return False
-    first = block[0][1]
-    following = block[1][1]
-    return sum(not _blank(value) and not _numeric(value) for value in first) >= 2 and (
-        not any(_numeric(value) for value in first)
-        and sum(_numeric(value) for value in following) >= 2
-    )
+def _guess_header(block, worksheet):
+    earlier_numeric_columns = []
+    for i, (_, row) in enumerate(block[:-1]):
+        following = block[i + 1][1]
+        label_columns = {
+            column for column, (label, value) in enumerate(zip(row, following))
+            if not _blank(label) and not _numeric(label) and _numeric(value)
+        }
+        numeric_columns = {column for column, value in enumerate(row) if _numeric(value)}
+        if len(label_columns) >= 2:
+            if not worksheet and not numeric_columns:
+                return i
+            # Worksheet notes can occupy unrelated columns above and beside
+            # the header. Do not skip rows that already resemble its data.
+            if worksheet and not any(len(columns & label_columns) >= 2 for columns in earlier_numeric_columns):
+                return i
+        if not worksheet:
+            break
+        earlier_numeric_columns.append(numeric_columns)
+    return None
 
 
-def _table(sheet, block, names):
-    first_row, first = block[0]
-    configured = _configured_header(first, names)
-    has_header = configured or _guess_header(block)
-    rows = block[1:] if has_header else block
+def _table(sheet, block, names, worksheet):
+    configured = _configured_header(block[0][1], names)
+    header_index = 0 if configured else _guess_header(block, worksheet)
+    has_header = header_index is not None
+    first_row, first = block[header_index if has_header else 0]
+    rows = block[header_index + 1:] if has_header else block
     if not configured and not any(sum(_numeric(value) for value in row) >= 2 for _, row in rows):
         return None
     width = max(len(row) for _, row in block)
@@ -97,21 +109,21 @@ def _table(sheet, block, names):
     return CurveTable(sheet, first_row, headers, tuple(rows), mapping, has_header)
 
 
-def _tables_in_sheet(sheet, rows, names):
+def _tables_in_sheet(sheet, rows, names, *, worksheet=False):
     block = []
     for line_number, raw in rows:
         row = list(raw)
         while row and _blank(row[-1]):
             row.pop()
         if block and (not row or _configured_header(row, names)):
-            table = _table(sheet, block, names)
+            table = _table(sheet, block, names, worksheet)
             if table is not None:
                 yield table
             block = []
         if row:
             block.append((line_number, tuple(row)))
     if block:
-        table = _table(sheet, block, names)
+        table = _table(sheet, block, names, worksheet)
         if table is not None:
             yield table
 
@@ -162,7 +174,7 @@ def read_curve_tables(filename, columns):
                 raise ValueError(f"Cannot read workbook {path.name}: {error}") from error
             for sheet, data in sheets:
                 rows = enumerate(data.itertuples(index=False, name=None), 1)
-                tables.extend(_tables_in_sheet(sheet, rows, names))
+                tables.extend(_tables_in_sheet(sheet, rows, names, worksheet=True))
         else:
             with path.open(encoding="utf-8-sig", newline="") as stream:
                 tables.extend(_tables_in_sheet(path.name, _text_rows(stream, extension), names))

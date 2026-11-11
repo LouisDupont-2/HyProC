@@ -640,7 +640,7 @@ class GUI_App(tk.Tk):
                 table = tables[0]
                 curve = validate_curve(table, table.mapping)
             else:
-                curve = CurveImportDialog(self, tables).show()
+                curve = CurveImportDialog(self, tables, file_path).show()
         except PermissionError as error:
             messagebox.showerror(
                 "Permission Denied",

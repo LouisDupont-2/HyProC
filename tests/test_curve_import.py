@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import pandas as pd
+from openpyxl import Workbook
 
 from curve_import import ColumnMapping, read_curve_tables, validate_curve
 
@@ -74,6 +75,24 @@ class CurveImportTest(unittest.TestCase):
         self.assertEqual(validate_curve(second, second.mapping).uncertainties, [0])
         self.assertIsNone(third.mapping)
         self.assertEqual(validate_curve(third, ColumnMapping(0, 1)).yields, [17])
+
+    def test_excel_detects_unconfigured_header_after_unrelated_note(self):
+        path = self.root / "curve.xlsx"
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.cell(4, 22, 10)
+        for column, value in {3: "Beam energy", 6: "Measured yield", 7: "Error", 19: 123}.items():
+            sheet.cell(5, column, value)
+        for column, value in {3: 6400, 6: 12, 7: 3.5}.items():
+            sheet.cell(6, column, value)
+        workbook.save(path)
+
+        table, = read_curve_tables(path, COLUMNS)
+        self.assertEqual(table.first_row, 5)
+        self.assertEqual(table.rows[0][0], 6)
+        self.assertIsNone(table.mapping)
+        curve = validate_curve(table, ColumnMapping(2, 5, 6))
+        self.assertEqual((curve.energies, curve.yields, curve.uncertainties), ([6400], [12], [3.5]))
 
     def test_legacy_excel_selects_the_xls_engine(self):
         with patch("curve_import.pd.ExcelFile") as excel:
