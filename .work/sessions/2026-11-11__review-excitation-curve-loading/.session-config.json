@@ -75,6 +75,30 @@
         "ticket": "01-validate-curve-data",
         "commit": "6711f62"
       }
+    },
+    {
+      "at": "2026-11-11T15:17:31.403Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/02-preview-ambiguous-curves.md",
+        "03-implement/02-preview-ambiguous-curves/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "02-preview-ambiguous-curves"
+      }
+    },
+    {
+      "at": "2026-11-11T15:22:06.147Z",
+      "event": "ticket_done",
+      "phase": "ship",
+      "files": [
+        "03-implement/02-preview-ambiguous-curves/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "02-preview-ambiguous-curves",
+        "commit": "676342a"
+      }
     }
   ],
   "current_phase": "ship",
