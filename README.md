@@ -27,7 +27,7 @@ python -m venv .venv
 Install the application dependencies in the virtual environment:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install numpy scipy pandas matplotlib periodictable xlwings openpyxl
+.\.venv\Scripts\python.exe -m pip install numpy scipy pandas matplotlib periodictable xlwings openpyxl xlrd
 ```
 
 Launch the application:
