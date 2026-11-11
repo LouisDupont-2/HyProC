@@ -38,6 +38,12 @@ class CurveImportTest(unittest.TestCase):
                 curve = validate_curve(table, ColumnMapping(1, 2))
                 self.assertEqual(curve.energies, [6400])
 
+    def test_tab_delimited_missing_yield_does_not_shift_uncertainty(self):
+        table, = self.text_tables("curve.txt", "Energie\tYield\tIncertitude\n6400\t\t1.2\n")
+        self.assertEqual(table.mapping, ColumnMapping(0, 1, 2))
+        with self.assertRaisesRegex(ValueError, "Row 2: Yield"):
+            validate_curve(table, table.mapping)
+
     def test_known_columns_use_names_and_keep_uncertainty_aligned(self):
         table, = self.text_tables(
             "curve.csv", "Incertitude,extra,Yield,Energie\n1.2,x,10,6400\n2.3,y,20,6399\n"

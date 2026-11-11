@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox,ttk
 import periodictable
 import json
-import pandas as pd
 from matplotlib.figure import Figure
 import numpy as np
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
@@ -26,17 +25,8 @@ import calc_curve
 from dialog_energy_range import EnergyRangeDialog
 from dialog_settings import SettingsDialog
 from dialog_reaction import ReactionDialog
-from dialog_import import SheetSelectionDialog, TableSelectionDialog
-
-def count_datapoints(df_raw: pd.DataFrame, header_row: int) -> int:
-    # Count consecutive non-empty rows after the header
-    count = 0
-    for i in range(header_row + 1, len(df_raw)):
-        row = df_raw.iloc[i]
-        if row.isnull().all():
-            break
-        count += 1
-    return count  
+from dialog_import import CurveImportDialog
+from curve_import import read_curve_tables, validate_curve
 
 # Main GUI application
 class GUI_App(tk.Tk):
@@ -629,118 +619,44 @@ class GUI_App(tk.Tk):
             print("Invalid input. Please enter a valid number.")
 
     # -------------------------------------------  
-    def load_curve(self)->None:
+    def load_curve(self) -> None:
         file_path = filedialog.askopenfilename(
             title="Load Excitation Curve",
             filetypes=[
                 ("Curve Files", "*.xlsx *.xls *.csv *.txt"),
                 ("Excel Files", "*.xlsx *.xls"),
-                ("Plain text Files", "*.csv" "*.txt"),
-                ("All Files", "*.*")
-            ]
+                ("Plain Text Files", "*.csv *.txt"),
+                ("All Files", "*.*"),
+            ],
         )
         if not file_path:
-            return 
-        loaded_successfully = False
+            return
+
         try:
-            with open(self.settings_path, 'r', encoding="utf-8") as f:
-                config = json.load(f)["import_curve"]["columns"]
-
-            ext = os.path.splitext(file_path)[1].lower()
-            if ext in [".xlsx", ".xls"]:
-                xl = pd.ExcelFile(file_path)
-                cols = [config["energy"], config["yield"]]  # Only require energy and yield headers
-
-                matching_sheets = []
-                for sheet in xl.sheet_names:
-                    df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
-                    if df_raw.isin(cols).any(axis=None):
-                        matching_sheets.append(sheet)
-                
-                if len(matching_sheets) == 0:
-                    messagebox.showerror("Loading Error", "No sheet containing the expected headers was found.")
-                    return
-                elif len(matching_sheets) == 1:
-                    sheet = matching_sheets[0]
-                else:
-                    sheet = self.ask_sheet(file_path, matching_sheets)
-                    if sheet is None:
-                        return
-
-                df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None, engine='openpyxl')
-                header_rows = df_raw[df_raw.apply(lambda row: all(col in row.values for col in cols), axis=1)].index.tolist()
-                if len(header_rows) == 0:
-                    messagebox.showerror("Loading Error", "No table containing the expected headers was found.")
-                    return
-                elif len(header_rows) == 1:
-                    header_row = header_rows[0]
-                    ndata = count_datapoints(df_raw, header_row)
-                else:
-                    result = self.ask_table(df_raw, header_rows, cols)
-                    if result is None:
-                        return
-                    header_row, ndata = result           
-
-                df = pd.read_excel(file_path, sheet_name=sheet, skiprows=range(header_row), header=0, nrows=ndata, engine='openpyxl')
+            with open(self.settings_path, encoding="utf-8") as settings:
+                columns = json.load(settings)["import_curve"]["columns"]
+            tables = read_curve_tables(file_path, columns)
+            if len(tables) == 1 and tables[0].mapping is not None:
+                table = tables[0]
+                curve = validate_curve(table, table.mapping)
             else:
-                if ext == ".csv":
-                    df = pd.read_csv(file_path, comment='#', engine='python')
-                else:
-                    df = pd.read_csv(file_path, comment='#', sep=r'[\t ]+', engine='python', header=None)
+                curve = CurveImportDialog(self, tables).show()
+        except PermissionError as error:
+            messagebox.showerror(
+                "Permission Denied",
+                f"Cannot open {error.filename or file_path}. If the file is open in another program, close it and try again.",
+            )
+            return
+        except (OSError, ValueError, KeyError) as error:
+            messagebox.showerror("Loading Error", f"Failed to load the data.\n{error}")
+            return
 
-                if config["energy"] not in df.columns or config["yield"] not in df.columns:
-                    if len(df.columns) >= 2:
-                        original_columns = list(df.columns)
-                        df.rename(columns={original_columns[0]: config["energy"], original_columns[1]: config["yield"]}, inplace=True)
-                        if len(original_columns) > 2:
-                            df.rename(columns={original_columns[2]: config["yield_err"]}, inplace=True)
-                        elif config["yield_err"] not in df.columns:
-                            df[config["yield_err"]] = 0.0
-                    else:
-                        raise ValueError("Curve file must contain at least two columns (energy and yield).")
-
-                if config["yield_err"] not in df.columns:
-                    df[config["yield_err"]] = 0.0
-
-            df = df.dropna(subset=[config["energy"], config["yield"], config["yield_err"]])
-            df = df[pd.to_numeric(df[config["energy"]], errors='coerce').notna()]
-
-            self.exp_energy = df[config["energy"]].astype(float).tolist()
-            self.ec_yield = df[config["yield"]].astype(float).tolist()
-            self.ec_yErr = df[config["yield_err"]].astype(float).tolist()
-
-            sorted_indices = sorted(range(len(self.exp_energy)), key=lambda i: self.exp_energy[i]) 
-            self.exp_energy = [self.exp_energy[i] for i in sorted_indices]
-            self.ec_yield = [self.ec_yield[i] for i in sorted_indices]
-            self.ec_yErr = [self.ec_yErr[i] for i in sorted_indices]
-            loaded_successfully = True
-
-        except PermissionError:
-            messagebox.showerror("Permission Denied", 
-            f"Cannot open the file:\n{file_path}\n\n"
-            "Please close it in Excel or any other program and try again.")
-            print("PermissionError: File is likely opened in another application.")
-        except ValueError as e:
-            messagebox.showerror("Loading Error", f"Failed to load the data.\n{e}")
-        if loaded_successfully:
+        if curve is not None:
+            self.exp_energy = curve.energies
+            self.ec_yield = curve.yields
+            self.ec_yErr = curve.uncertainties
             self.rescale_excitation_curve()
-        else:
-            self.update_exc_plot()
 
-    def ask_sheet(self, file_path: str, sheet_names: list) -> str:
-        """
-        If multiple sheets are found in the loaded Excel file, ask the user which one to load.
-        """
-        dialog = SheetSelectionDialog(self, sheet_names)
-        return dialog.show()
-
-    def ask_table(self, df_raw: pd.DataFrame, header_rows: list[int], cols: list[str]) -> tuple[int, int]:
-        """
-        If multiple tables are found in the DataFrame, ask the user which one to load.
-        """
-        dialog = TableSelectionDialog(self, df_raw, header_rows, count_datapoints)
-        return dialog.show()
-    
     def load_std(self)->None:
         file_path = filedialog.askopenfilename(title="Load Standard", filetypes=[("JSON files", "*.json")])
         if not file_path:

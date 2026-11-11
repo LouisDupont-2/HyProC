@@ -4,7 +4,6 @@ import csv
 from dataclasses import dataclass
 import math
 from pathlib import Path
-import re
 
 import pandas as pd
 
@@ -131,7 +130,11 @@ def _text_rows(stream, extension):
         for number, line in enumerate(stream, 1):
             content, _, _ = line.partition("#")
             if content.strip() or not line.lstrip().startswith("#"):
-                yield number, re.split(r"[ \t]+", content.strip())
+                if "\t" in content:
+                    # Keep empty cells so later values stay in their columns.
+                    yield number, content.rstrip("\r\n").split("\t")
+                else:
+                    yield number, content.split()
 
 
 def read_curve_tables(filename, columns):
