@@ -99,9 +99,33 @@
         "ticket": "02-preview-ambiguous-curves",
         "commit": "676342a"
       }
+    },
+    {
+      "at": "2026-11-11T15:22:13.364Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/03-document-curve-import.md",
+        "03-implement/03-document-curve-import/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "03-document-curve-import"
+      }
+    },
+    {
+      "at": "2026-11-11T15:24:22.420Z",
+      "event": "ticket_done",
+      "phase": "finish-pending",
+      "files": [
+        "03-implement/03-document-curve-import/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "03-document-curve-import",
+        "commit": "818ff11"
+      }
     }
   ],
-  "current_phase": "ship",
+  "current_phase": "finish-pending",
   "git": {
     "branch": "feat/excitation-curve-import",
     "base_branch": "main",
