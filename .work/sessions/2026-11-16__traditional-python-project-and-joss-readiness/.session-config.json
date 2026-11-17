@@ -1,0 +1,63 @@
+{
+  "session_id": "2026-11-16__traditional-python-project-and-joss-readiness",
+  "feature_name": "Traditional Python project and JOSS readiness",
+  "scratch_dir": ".scratch/tests/2026-11-16__traditional-python-project-and-joss-readiness",
+  "created_at": "2026-11-16T14:24:24.895Z",
+  "template_version": 2,
+  "history": [
+    {
+      "at": "2026-11-16T14:24:24.895Z",
+      "event": "session_started",
+      "phase": "grill",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-17T11:22:36.884Z",
+      "event": "grill_written",
+      "phase": "plan-not-started",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-17T11:22:36.983Z",
+      "event": "plan_started",
+      "phase": "plan",
+      "files": [
+        "02-plan/plan.md"
+      ]
+    },
+    {
+      "at": "2026-11-17T14:50:18.467Z",
+      "event": "branch_created",
+      "phase": "plan",
+      "detail": {
+        "branch": "refactor/hyproc-package-and-cli",
+        "base": "main"
+      }
+    },
+    {
+      "at": "2026-11-17T14:50:18.493Z",
+      "event": "plan_written",
+      "phase": "ship",
+      "files": [
+        "02-plan/plan.md",
+        "02-plan/tickets/01-package-desktop.md",
+        "02-plan/tickets/02-share-simulation-core.md",
+        "02-plan/tickets/03-add-simulate-command.md"
+      ],
+      "detail": {
+        "tickets": 3
+      }
+    }
+  ],
+  "current_phase": "ship",
+  "git": {
+    "branch": "refactor/hyproc-package-and-cli",
+    "base_branch": "main",
+    "branch_created_at": "2026-11-17T14:50:18.467Z",
+    "pr_url": null
+  }
+}
