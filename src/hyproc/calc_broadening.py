@@ -1,32 +1,9 @@
 import numpy as np
 from scipy.signal import convolve
-import json
 from typing import Sequence, Literal
 from numpy.typing import NDArray
 import os
-import periodictable
-
-from .class_models import Element, Layer, Target
-from .settings_config import ensure_settings
-
-# Load settings
-script_dir = os.path.dirname(os.path.abspath(__file__))
-settings_path = ensure_settings()
-with open(settings_path, 'r', encoding="utf-8") as f:
-    settings = json.load(f)
-
-Z1 = int(settings["reaction"]["Z1"])
-A1 = int(settings["reaction"]["A1"])
-M1 = periodictable.elements[Z1][A1].mass* 931.494  # keV/c²
-Z2 = int(settings["reaction"]["Z2"])
-A2 = int(settings["reaction"]["A2"])
-M2 = periodictable.elements[Z2][A2].mass* 931.494  # keV/c²
-
-# Resonance properties
-E_R = settings["resonance"]["E_R"]  # keV
-Gamma = settings["resonance"]["Gamma"]  # keV
-sigma_R = settings["resonance"]["Sigma"]  # mbarn
-
+from .class_models import Target
 
 def gauss(x: NDArray[np.float64], x0:float, sigma:float)->NDArray[np.float64]:
     return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-(x - x0)**2 / (2 * sigma**2))
@@ -53,7 +30,7 @@ def loss_axis(target: Target)->list[float]:
         E_loss.append(loss + layer["stopping"]*layer["areal_density"])
     return E_loss
 
-def find_layer_index(E_in: float, E_loss: list[float]) -> int:
+def find_layer_index(E_in: float, E_loss: list[float], E_R: float) -> int:
     """
     For a given incident energy, identifies in which layer the resonance is reached in order to extract its properties.
     To do, the energy loss required to reach the resonance is compared to the the energy loss of each layer.
@@ -109,7 +86,7 @@ def get_Z(target: Target, index: int, excl_H: bool=False, return_list: bool=Fals
 
     return round(Z_mean,2)
 
-def find_in_layer_thickness(E_in: float, E_loss: list[float], index: int, target: Target) -> float:
+def find_in_layer_thickness(E_in: float, E_loss: list[float], index: int, target: Target, E_R: float) -> float:
     """
     Calculates the thickness within the resonance layer at which the resonance occurs.
 
@@ -136,7 +113,7 @@ def find_in_layer_thickness(E_in: float, E_loss: list[float], index: int, target
     thickness = inlayer_loss/target["layers"][index]["stopping"]
     return thickness
 
-def find_total_thickness(E_in: float, E_loss: list[float], index: int, target: Target)-> float:
+def find_total_thickness(E_in: float, E_loss: list[float], index: int, target: Target, E_R: float)-> float:
     """
     Calculates the total thickness traveled by the incident particle up to the resonance point in the target.
 
@@ -164,7 +141,7 @@ def find_total_thickness(E_in: float, E_loss: list[float], index: int, target: T
     thickness = 0.0
     for i in range(index):
         thickness += target["layers"][i]["areal_density"]
-    thickness_in_last_layer = find_in_layer_thickness(E_in, E_loss, index, target)
+    thickness_in_last_layer = find_in_layer_thickness(E_in, E_loss, index, target, E_R)
     thickness+= thickness_in_last_layer
     return thickness
 
@@ -195,7 +172,7 @@ def DopplerSD(target: Target, index: int)-> float:
         delta_D = -0.0218*Z+4.2421  # parameters calculated from a fit between Si & Pb
     return delta_D
 
-def Stragg_law(Z: int, thickness: float, model: str) -> float:
+def Stragg_law(Z: int, thickness: float, model: str, Z1: int) -> float:
     """
     Calculates the standard deviation of the straggling-induced broadening using the specified theoretical model.
 
@@ -216,7 +193,7 @@ def Stragg_law(Z: int, thickness: float, model: str) -> float:
     if model == "Bohr":
         return np.sqrt(0.260532*Z1**2*Z*thickness/1000.0) 
 
-def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: str="Rud corr")-> float:
+def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: str, E_R: float, Z1: int)-> float:
     """
     Calculates the standard deviation of the straggling-induced gaussian broadening based on the atomic number,
     material thickness, and selected model.
@@ -242,7 +219,7 @@ def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: 
         for j, layer in enumerate(target["layers"]):
             Z = get_Z(target, j, excl_H=False, return_list=True)
             for Z_el in Z:
-                delta_S = Stragg_law(Z_el[0], layer["areal_density"]*Z_el[1]/100, model)
+                delta_S = Stragg_law(Z_el[0], layer["areal_density"]*Z_el[1]/100, model, Z1)
                 Var_S += delta_S**2
     else:
         for i in range(index+1):
@@ -250,10 +227,10 @@ def stragg(E_in: float, E_loss: list[float], index: int, target: Target, model: 
             if i != index:  
                 DeltaTFU = target["layers"][i]["areal_density"]
             else: 
-                DeltaTFU = find_in_layer_thickness(E_in, E_loss,i, target) 
+                DeltaTFU = find_in_layer_thickness(E_in, E_loss, i, target, E_R)
 
             for Z_el in Z:
-                delta_S = Stragg_law(Z_el[0], DeltaTFU*Z_el[1]/100, model)
+                delta_S = Stragg_law(Z_el[0], DeltaTFU*Z_el[1]/100, model, Z1)
                 Var_S += delta_S**2
 
     #print('stragg index ', index)
@@ -284,7 +261,7 @@ def save(vector1: Sequence[float], vector2: Sequence[float], filename: str)-> No
             f.write(f"{v1}\t{v2}\n")
 
 
-def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
+def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
@@ -309,7 +286,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         outOfTarget (float) : Fraction of the profile corresponding to particles escaping the target.
     """
     E_loss = loss_axis(target)
-    index = find_layer_index(E_in, E_loss)
+    index = find_layer_index(E_in, E_loss, E_R)
     
     # Doppler
     if Doppler: 
@@ -326,7 +303,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     if index==-2:
         delta_S = 0.0
     else:
-        delta_S = stragg(E_in, E_loss, index, target, straggling_model)
+        delta_S = stragg(E_in, E_loss, index, target, straggling_model, E_R, Z1)
 
     # Total Gaussian broadening
     SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2)
@@ -356,7 +333,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     y_conv = convolve(y1, y2, mode='same') * dx  # x_conv = x, no shift needed
 
     deltaE_in = E_in - E_R # Energy loss to get to the resonance
-    center = find_total_thickness(E_in, E_loss, index, target)  # Thickness at which the energy resonance is reached for a given incident energy
+    center = find_total_thickness(E_in, E_loss, index, target, E_R)  # Thickness at which the energy resonance is reached for a given incident energy
     # print("c ",center)
 
     x_conv = x
@@ -367,7 +344,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     for l,eVal in enumerate(x_conv):
         deltaE = E_R - eVal  # Energy difference relative to E_R
         Eloss_value = deltaE_in - deltaE  # Energy loss for the current energy value
-        new_index = find_layer_index(E_in - deltaE, E_loss)
+        new_index = find_layer_index(E_in - deltaE, E_loss, E_R)
         outOfTarget = 0
 
         layers_contribution = np.zeros(len(target["layers"]))
@@ -428,37 +405,16 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     
     if saveData:
         #print(savepath)
-        save(x, gauss(x,E_center, delta_B), savepath+"\\"+"Beam.txt")
+        save(x, gauss(x,E_center, delta_B), os.path.join(savepath, "Beam.txt"))
         if delta_S == 0:
-            save(x, np.zeros(len(x)), savepath+"\\"+"Stragg.txt")
+            save(x, np.zeros(len(x)), os.path.join(savepath, "Stragg.txt"))
         else:
-            save(x, gauss(x,E_center, delta_S), savepath+"\\"+"Stragg.txt")
+            save(x, gauss(x,E_center, delta_S), os.path.join(savepath, "Stragg.txt"))
         if Doppler:
-            save(x, gauss(x,E_center, delta_D), savepath+"\\"+"Doppler.txt")
-        save(x, y1,savepath+"\\"+"Total_Gauss.txt")
-        save(x, lorentz(x,E_R, Gamma,sigma_R), savepath+"\\"+"xsec.txt")
-        save(x_conv, y_conv,savepath+"\\"+"Total_Broadening.txt")
-        save(x_conv_TFU, y_conv_TFU,savepath+"\\"+"Total_Broadening_TFU.txt")
+            save(x, gauss(x,E_center, delta_D), os.path.join(savepath, "Doppler.txt"))
+        save(x, y1,os.path.join(savepath, "Total_Gauss.txt"))
+        save(x, lorentz(x,E_R, Gamma,sigma_R), os.path.join(savepath, "xsec.txt"))
+        save(x_conv, y_conv,os.path.join(savepath, "Total_Broadening.txt"))
+        save(x_conv_TFU, y_conv_TFU,os.path.join(savepath, "Total_Broadening_TFU.txt"))
 
     return center, x_conv_TFU, y_conv_TFU, layers_contribution, outOfTarget
-
-
-if __name__ == "__main__":
-    with open(r"C:\Users\louis\OneDrive - Université de Namur\Documents\Mémoire (MA2)\OwnCode\Straggling comparison\Ti33H66.json",'r') as f:
-        target_input = json.load(f)
-
-    target_input["layers"][0]["areal_density"] = 2500
-    print(target_input)
-
-    E_i = 10000
-    # x,y = broadening(E_i, target_input )
-
-    Z = get_Z(target_input,0,excl_H=False)
-    print(Z)
-
-    x=loss_axis(target_input)
-    SD = stragg(E_i, x, -1, target_input)
- 
-
-
-

@@ -54,6 +54,24 @@ environment is optional. The installer reads dependencies from `pyproject.toml`.
 See the [manual](src/hyproc/manual/HyProC_Manual.pdf) for input formats, units, model
 details, and the full workflow.
 
+## Run a saved simulation from Python
+
+```python
+from hyproc.simulation import simulate
+from hyproc.simulation_io import load_simulation
+
+simulation = load_simulation("simulation.json")
+result = simulate(simulation)
+print(result.energy, result.yield_values)
+```
+
+The calculation uses the energies of the saved simulated curve, then the
+embedded experimental curve, then the saved energy range if neither curve has
+energies. The energy offset is applied as in the desktop app. The SCS-25-Solid
+model runs without Tkinter or writable settings. For a simulation saved with
+SRIM, pass `srim_path` with the installation directory. SRIM uses its own
+input and output files in that directory.
+
 ## First-run settings
 
 On Windows, HyProC stores settings in `%APPDATA%\HyProC\settings.json`. To retain settings from an older checkout, copy its `settings.json` there before launching. On other platforms HyProC uses `$XDG_CONFIG_HOME/HyProC/settings.json` or `~/.config/HyProC/settings.json`. On first launch it creates the file from the bundled [defaults](src/hyproc/settings.example.json).
