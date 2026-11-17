@@ -10,8 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["matplotlib", "numpy", "scipy", "pandas", "periodictable", "openpyxl", "xlrd"]
 
-[project.gui-scripts]
-hyproc = "hyproc.UI:main"
+[project.scripts]
+hyproc = "hyproc.cli:main"
 
 [tool.setuptools.package-data]
 hyproc = ["settings.example.json", "data/*.json", "manual/*.pdf"]

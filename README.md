@@ -72,6 +72,17 @@ model runs without Tkinter or writable settings. For a simulation saved with
 SRIM, pass `srim_path` with the installation directory. SRIM uses its own
 input and output files in that directory.
 
+## Run a saved simulation from the terminal
+
+```powershell
+.\.venv\Scripts\hyproc.exe simulate simulation.json --output rerun.json
+```
+
+The command uses the same energy selection as the Python example. It writes
+a complete simulation JSON that you can open in the desktop app or use in
+another run. For a file that uses SRIM, include `--srim-path` with the installation
+directory. Run `hyproc simulate --help` to see the options.
+
 ## First-run settings
 
 On Windows, HyProC stores settings in `%APPDATA%\HyProC\settings.json`. To retain settings from an older checkout, copy its `settings.json` there before launching. On other platforms HyProC uses `$XDG_CONFIG_HOME/HyProC/settings.json` or `~/.config/HyProC/settings.json`. On first launch it creates the file from the bundled [defaults](src/hyproc/settings.example.json).
