@@ -52,7 +52,7 @@
     \textbf{HyProC - Manual}
 
     \Large
-    \text{5th November 2026}
+    \today
 
     \vspace{0.25cm}
     L. Dupont
@@ -68,7 +68,17 @@
 
 \newpage
 \section{Getting started}
-From the HyProC folder, run \texttt{UI.py} to launch the application.
+From the HyProC folder, run \texttt{python run\_hyproc.py} to launch the
+desktop application. This launcher reads \texttt{settings.json} beside the
+script. If you installed HyProC with pip, run \texttt{hyproc} to launch it
+with the settings file in the current directory. The desktop app creates the
+settings file from its defaults when needed.
+
+To calculate a saved simulation from the terminal, run:
+\begin{verbatim}
+hyproc simulate input.json --output result.json
+\end{verbatim}
+Open the output in the desktop application or use it as input for another run.
 
 Once inside the application, the workflow should be as follows:
 \begin{enumerate}
@@ -153,7 +163,7 @@ See section~\ref{sec:efficiency} for details on the $K$ factor and standard.
 The Options panel controls the physical models and output:
 \begin{itemize}
     \item \textbf{Stopping model:} SCS-25-Solid (the default) or SRIM (see section \ref{sec:stopping}).
-    \item \textbf{Straggling model:} None, Rud, Rud corr (the default), or Bohr.
+    \item \textbf{Straggling model:} None, Rud, Rud corr, or Bohr (the default).
     \item \textbf{Beam width SD (keV):} Standard deviation of the incident ion beam energy distribution (assumed to be gaussian). If set to 0, the beam is considered mono-energetic.
     \item \textbf{Offset (keV):} Energy offset used for the calculation and reversed for displayed curve energies.
     \item \textbf{Quantum Doppler:} Includes or omits the quantum Doppler contribution.

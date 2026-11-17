@@ -27,18 +27,24 @@ python -m venv .venv
 Install the application dependencies in the virtual environment:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install numpy scipy pandas matplotlib periodictable xlwings openpyxl xlrd
+.\.venv\Scripts\python.exe -m pip install .
 ```
 
 Launch the application:
 
 ```powershell
-.\.venv\Scripts\python.exe UI.py
+.\.venv\Scripts\hyproc.exe
 ```
 
-These commands use the environment's Python directly, so activating the
-environment is optional. The dependency list comes from the current source;
-the repository does not yet provide a pinned dependency file.
+You can also run the top-level [run_hyproc.py](run_hyproc.py) script using
+the virtual environment's Python:
+
+```powershell
+.\.venv\Scripts\python.exe run_hyproc.py
+```
+
+These commands use executables in the environment directly, so activating the
+environment is optional. The installer reads dependencies from `pyproject.toml`.
 
 ## Basic workflow
 
@@ -55,11 +61,42 @@ the repository does not yet provide a pinned dependency file.
 See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
 details, and the full workflow.
 
+## Run a saved simulation from Python
+
+```python
+from hyproc.simulation import simulate
+from hyproc.simulation_io import load_simulation
+
+simulation = load_simulation("simulation.json")
+result = simulate(simulation)
+print(result.energy, result.yield_values)
+```
+
+The calculation uses the energies of the saved simulated curve, then the
+embedded experimental curve, then the saved energy range if neither curve has
+energies. The energy offset is applied as in the desktop app. The SCS-25-Solid
+model runs without Tkinter or writable settings. For a simulation saved with
+SRIM, pass `srim_path` with the installation directory. SRIM uses its own
+input and output files in that directory.
+
+## Run a saved simulation from the terminal
+
+```powershell
+.\.venv\Scripts\hyproc.exe simulate simulation.json --output rerun.json
+```
+
+The command uses the same energy selection as the Python example. It writes
+a complete simulation JSON that you can open in the desktop app or use in
+another run. For a file that uses SRIM, include `--srim-path` with the installation
+directory. Run `hyproc simulate --help` to see the options.
+
 ## First-run settings
 
-HyProC automatically creates `settings.json` from
-[`settings.example.json`](settings.example.json) when the local file is missing.
-Existing settings are preserved. The template starts with blank paths.
+The top-level `run_hyproc.py` uses the `settings.json` beside the script.
+The installed `hyproc` command uses the `settings.json` in the directory
+you launch it from. If the file is missing, the desktop app creates it
+from the bundled [defaults](src/hyproc/settings.example.json). Launch
+either from the project root to use the same settings.
 
 Open **Settings** and configure:
 
@@ -76,14 +113,9 @@ the defaults distributed to new users.
 
 | Path | Purpose |
 | --- | --- |
-| `UI.py`, `UI_geometry.py` | Application entry point and interface layout |
-| `dialog_*.py` | Settings, reaction, import, and energy-range dialogs |
-| `class_models.py` | Target, layer, and element models |
-| `calc_stopping.py` | Stopping cross-section calculations |
-| `calc_broadening.py`, `calc_curve.py` | Broadening and excitation-curve calculations |
-| `data/` | Bundled stopping-model parameters |
-| `settings_config.py`, `settings.example.json` | Local settings initialization and shared defaults |
-| `manual/` | PDF manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
+| `src/hyproc/` | Desktop application and calculation modules |
+| `data/` | Stopping-model parameters |
+| `manual/` | User manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
 | `tools/` | Supporting scripts |
 
 ## Documentation and license
