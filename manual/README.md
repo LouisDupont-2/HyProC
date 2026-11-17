@@ -1,6 +1,6 @@
 # HyProC manual
 
-Open [HyProC_Manual.pdf](../src/hyproc/manual/HyProC_Manual.pdf) to read the manual.
+Open [HyProC_Manual.pdf](HyProC_Manual.pdf) to read the manual.
 
 - `source/main.tex`: LaTeX source.
 - `source/bibliography.bib`: references.
@@ -13,7 +13,7 @@ run these commands in PowerShell from the `manual/source` directory:
 ```powershell
 latexmk -pdf '-outdir=../build' '-jobname=HyProC_Manual' main.tex
 if ($LASTEXITCODE -eq 0) {
-    Copy-Item ../build/HyProC_Manual.pdf ../../src/hyproc/manual/HyProC_Manual.pdf
+    Copy-Item ../build/HyProC_Manual.pdf ../HyProC_Manual.pdf
 }
 ```
 

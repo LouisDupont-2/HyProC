@@ -5,7 +5,7 @@ HyProC (Hydrogen Profiling by Convultion) is a Python code that simulates Resona
 This program was first developped in the context of a [Master Thesis](https://researchportal.unamur.be/en/studentTheses/profilage-dhydrog%C3%A8ne-par-rnra/) at the [University of Namur](https://www.unamur.be/en) and is now one of the focus point of a [joint PhD](https://research.kuleuven.be/portal/en/project/3E260097) between the University of Namur and [KU Leuven](https://www.kuleuven.be/kuleuven).
 
 For the calculation models and detailed controls, see the
-[user manual](src/hyproc/manual/HyProC_Manual.pdf).
+[user manual](manual/HyProC_Manual.pdf).
 
 ![Main](/pics/HyProC_GUI.png?raw=true "HyProC's user interface")
 
@@ -36,6 +36,13 @@ Launch the application:
 .\.venv\Scripts\hyproc.exe
 ```
 
+You can also run the top-level [run_hyproc.py](run_hyproc.py) script using
+the virtual environment's Python:
+
+```powershell
+.\.venv\Scripts\python.exe run_hyproc.py
+```
+
 These commands use executables in the environment directly, so activating the
 environment is optional. The installer reads dependencies from `pyproject.toml`.
 
@@ -51,7 +58,7 @@ environment is optional. The installer reads dependencies from `pyproject.toml`.
    as needed, using the chi-squared history to track the comparisons.
 7. Save the simulation to resume it later, or export the simulated curve.
 
-See the [manual](src/hyproc/manual/HyProC_Manual.pdf) for input formats, units, model
+See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
 details, and the full workflow.
 
 ## Run a saved simulation from Python
@@ -102,13 +109,14 @@ the defaults distributed to new users.
 
 | Path | Purpose |
 | --- | --- |
-| src/hyproc/ | Desktop application, calculation modules, and bundled resources |
-| manual/ | LaTeX sources and [rebuild instructions](manual/README.md) |
+| `src/hyproc/` | Desktop application and calculation modules |
+| `data/` | Stopping-model parameters |
+| `manual/` | User manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
 | `tools/` | Supporting scripts |
 
 ## Documentation and license
 
-- [User manual](src/hyproc/manual/HyProC_Manual.pdf)
+- [User manual](manual/HyProC_Manual.pdf)
 - [Changelog](CHANGELOG.md)
 - [GNU General Public License, version 3](LICENSE)
 

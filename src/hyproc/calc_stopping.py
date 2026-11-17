@@ -8,10 +8,10 @@ from functools import lru_cache
 from typing import Literal
 
 from .class_models import Layer, Target
+from .resources import find_resource
 from pathlib import Path
 from threading import Lock
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
 _srim_lock = Lock()
 
 # Stopping cross section variation allowed within a layer (in %)
@@ -122,8 +122,10 @@ def read_SRIM_stopping_cross_section(srim_directory: Path)-> float:
 
 @lru_cache(maxsize=1)
 def _load_dk_parameters() -> list[list[dict | None]]:
-    parameter_path = os.path.join(script_dir, "data", "SCS-2025-solid.json")
-    with open(parameter_path, "r", encoding="utf-8") as file:
+    parameter_path = find_resource("data/SCS-2025-solid.json")
+    if parameter_path is None:
+        raise FileNotFoundError("Could not find the SCS-25-Solid parameter file.")
+    with parameter_path.open(encoding="utf-8") as file:
         data = json.load(file)
     return data["parameters"]
 

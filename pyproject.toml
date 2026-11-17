@@ -14,4 +14,7 @@ dependencies = ["matplotlib", "numpy", "scipy", "pandas", "periodictable", "open
 hyproc = "hyproc.cli:main"
 
 [tool.setuptools.package-data]
-hyproc = ["settings.example.json", "data/*.json", "manual/*.pdf"]
+hyproc = ["settings.example.json"]
+
+[tool.setuptools.data-files]
+"share/hyproc" = ["manual/HyProC_Manual.pdf", "data/SCS-2025-solid.json"]

@@ -31,3 +31,6 @@ latex manual files/
 # Intermediate PDFs (the published manual PDF remains tracked)
 /manual/source/*.pdf
 .scratch/
+
+# Local verification cases and reports containing unpublished measurements
+/tests/fixtures/local/

@@ -21,6 +21,7 @@ from .settings_config import ensure_settings
 from . import UI_geometry
 from . import calc_stopping
 from . import calc_curve
+from .resources import find_resource
 from .simulation import _simulate, energy_values, projectile_arguments
 from .simulation_io import load_simulation, make_target, save_simulation, validate_physics
 from .dialog_energy_range import EnergyRangeDialog
@@ -34,7 +35,6 @@ class GUI_App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.script_dir = os.path.dirname(os.path.abspath(__file__)) 
         self.settings_path = ensure_settings()
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
@@ -1075,9 +1075,9 @@ class GUI_App(tk.Tk):
         self.Z2 = int(settings["reaction"]["Z2"])
 
     def open_manual(self):
-        manual_path = os.path.join(self.script_dir, "manual", "HyProC_Manual.pdf")
-        if not os.path.isfile(manual_path):
-            messagebox.showerror("Manual not found", f"Could not find the manual:\n{manual_path}")
+        manual_path = find_resource("manual/HyProC_Manual.pdf")
+        if manual_path is None:
+            messagebox.showerror("Manual not found", "Could not find the HyProC user manual.")
             return
         if sys.platform == "win32":
             os.startfile(manual_path)

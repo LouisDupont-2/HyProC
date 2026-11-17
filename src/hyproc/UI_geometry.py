@@ -146,7 +146,7 @@ def create_widgets(self):
             width=10,
         )
         self.straggling_model_combobox.grid(row=1, column=1, padx=5, pady=(5,0), sticky='we')
-        self.straggling_model_combobox.set("Rud corr")
+        self.straggling_model_combobox.set("Bohr")
         
         ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=2, column=0, padx=(0,5), pady=(5,0), sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
