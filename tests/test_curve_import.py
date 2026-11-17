@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 from openpyxl import Workbook
 
-from curve_import import ColumnMapping, read_curve_tables, validate_curve
+from hyproc.curve_import import ColumnMapping, read_curve_tables, validate_curve
 
 
 COLUMNS = {"energy": "Energie", "yield": "Yield", "yield_err": "Incertitude"}
@@ -95,7 +95,7 @@ class CurveImportTest(unittest.TestCase):
         self.assertEqual((curve.energies, curve.yields, curve.uncertainties), ([6400], [12], [3.5]))
 
     def test_legacy_excel_selects_the_xls_engine(self):
-        with patch("curve_import.pd.ExcelFile") as excel:
+        with patch("hyproc.curve_import.pd.ExcelFile") as excel:
             workbook = excel.return_value.__enter__.return_value
             workbook.sheet_names = ["Legacy"]
             workbook.parse.return_value = pd.DataFrame([["Energie", "Yield"], [6400, 10]])

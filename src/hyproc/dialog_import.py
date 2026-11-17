@@ -2,7 +2,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from curve_import import ColumnMapping, CurveTable, ExperimentalCurve, validate_curve
+from .curve_import import ColumnMapping, CurveTable, ExperimentalCurve, validate_curve
 
 
 class CurveImportDialog(tk.Toplevel):

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HyProC"
+version = "0.1.0"
+description = "Resonant nuclear reaction analysis excitation-curve simulation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["matplotlib", "numpy", "scipy", "pandas", "periodictable", "openpyxl", "xlrd"]
+
+[project.gui-scripts]
+hyproc = "hyproc.UI:main"
+
+[tool.setuptools.package-data]
+hyproc = ["settings.example.json", "data/*.json", "manual/*.pdf"]

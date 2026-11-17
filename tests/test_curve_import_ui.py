@@ -6,11 +6,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from curve_import import CurveTable
-from dialog_import import CurveImportDialog
+from hyproc.curve_import import CurveTable
+from hyproc.dialog_import import CurveImportDialog
 
-with patch("settings_config.ensure_settings", return_value=str(Path("settings.example.json").resolve())):
-    from UI import GUI_App
+with patch("hyproc.settings_config.ensure_settings", return_value=str(Path("src/hyproc/settings.example.json").resolve())):
+    from hyproc.UI import GUI_App
 
 
 class LoadCurveTest(unittest.TestCase):
@@ -29,9 +29,9 @@ class LoadCurveTest(unittest.TestCase):
 
     def load(self, content, dialog_result=None):
         self.file.write_text(content, encoding="utf-8")
-        with (patch("UI.filedialog.askopenfilename", return_value=str(self.file)),
-              patch("UI.CurveImportDialog") as preview,
-              patch("UI.messagebox.showerror") as error):
+        with (patch("hyproc.UI.filedialog.askopenfilename", return_value=str(self.file)),
+              patch("hyproc.UI.CurveImportDialog") as preview,
+              patch("hyproc.UI.messagebox.showerror") as error):
             preview.return_value.show.return_value = dialog_result
             GUI_App.load_curve(self.app)
         return preview, error
@@ -92,7 +92,7 @@ class CurvePreviewTest(unittest.TestCase):
 
         dialog.energy_picker.current(2)
         dialog.yield_picker.current(2)
-        with patch("dialog_import.messagebox.showerror") as error:
+        with patch("hyproc.dialog_import.messagebox.showerror") as error:
             dialog._confirm()
         self.assertIsNone(dialog.result)
         self.assertIn("different column", error.call_args.args[1])

@@ -5,7 +5,7 @@ HyProC (Hydrogen Profiling by Convultion) is a Python code that simulates Resona
 This program was first developped in the context of a [Master Thesis](https://researchportal.unamur.be/en/studentTheses/profilage-dhydrog%C3%A8ne-par-rnra/) at the [University of Namur](https://www.unamur.be/en) and is now one of the focus point of a [joint PhD](https://research.kuleuven.be/portal/en/project/3E260097) between the University of Namur and [KU Leuven](https://www.kuleuven.be/kuleuven).
 
 For the calculation models and detailed controls, see the
-[user manual](manual/HyProC_Manual.pdf).
+[user manual](src/hyproc/manual/HyProC_Manual.pdf).
 
 ![Main](/pics/HyProC_GUI.png?raw=true "HyProC's user interface")
 
@@ -27,18 +27,17 @@ python -m venv .venv
 Install the application dependencies in the virtual environment:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install numpy scipy pandas matplotlib periodictable xlwings openpyxl xlrd
+.\.venv\Scripts\python.exe -m pip install .
 ```
 
 Launch the application:
 
 ```powershell
-.\.venv\Scripts\python.exe UI.py
+.\.venv\Scripts\hyproc.exe
 ```
 
-These commands use the environment's Python directly, so activating the
-environment is optional. The dependency list comes from the current source;
-the repository does not yet provide a pinned dependency file.
+These commands use executables in the environment directly, so activating the
+environment is optional. The installer reads dependencies from `pyproject.toml`.
 
 ## Basic workflow
 
@@ -52,14 +51,12 @@ the repository does not yet provide a pinned dependency file.
    as needed, using the chi-squared history to track the comparisons.
 7. Save the simulation to resume it later, or export the simulated curve.
 
-See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
+See the [manual](src/hyproc/manual/HyProC_Manual.pdf) for input formats, units, model
 details, and the full workflow.
 
 ## First-run settings
 
-HyProC automatically creates `settings.json` from
-[`settings.example.json`](settings.example.json) when the local file is missing.
-Existing settings are preserved. The template starts with blank paths.
+On Windows, HyProC stores settings in `%APPDATA%\HyProC\settings.json`. To retain settings from an older checkout, copy its `settings.json` there before launching. On other platforms HyProC uses `$XDG_CONFIG_HOME/HyProC/settings.json` or `~/.config/HyProC/settings.json`. On first launch it creates the file from the bundled [defaults](src/hyproc/settings.example.json).
 
 Open **Settings** and configure:
 
@@ -76,19 +73,13 @@ the defaults distributed to new users.
 
 | Path | Purpose |
 | --- | --- |
-| `UI.py`, `UI_geometry.py` | Application entry point and interface layout |
-| `dialog_*.py` | Settings, reaction, import, and energy-range dialogs |
-| `class_models.py` | Target, layer, and element models |
-| `calc_stopping.py` | Stopping cross-section calculations |
-| `calc_broadening.py`, `calc_curve.py` | Broadening and excitation-curve calculations |
-| `data/` | Bundled stopping-model parameters |
-| `settings_config.py`, `settings.example.json` | Local settings initialization and shared defaults |
-| `manual/` | PDF manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
+| src/hyproc/ | Desktop application, calculation modules, and bundled resources |
+| manual/ | LaTeX sources and [rebuild instructions](manual/README.md) |
 | `tools/` | Supporting scripts |
 
 ## Documentation and license
 
-- [User manual](manual/HyProC_Manual.pdf)
+- [User manual](src/hyproc/manual/HyProC_Manual.pdf)
 - [Changelog](CHANGELOG.md)
 - [GNU General Public License, version 3](LICENSE)
 

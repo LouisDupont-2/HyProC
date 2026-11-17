@@ -16,17 +16,17 @@ import threading
 import traceback
 from typing import Sequence, Literal
 
-from class_models import Element, Layer, Target
-from settings_config import ensure_settings
-import UI_geometry
-import calc_stopping
-import calc_broadening 
-import calc_curve        
-from dialog_energy_range import EnergyRangeDialog
-from dialog_settings import SettingsDialog
-from dialog_reaction import ReactionDialog
-from dialog_import import CurveImportDialog
-from curve_import import read_curve_tables, validate_curve
+from .class_models import Element, Layer, Target
+from .settings_config import ensure_settings
+from . import UI_geometry
+from . import calc_stopping
+from . import calc_broadening
+from . import calc_curve
+from .dialog_energy_range import EnergyRangeDialog
+from .dialog_settings import SettingsDialog
+from .dialog_reaction import ReactionDialog
+from .dialog_import import CurveImportDialog
+from .curve_import import read_curve_tables, validate_curve
 
 # Main GUI application
 class GUI_App(tk.Tk):
@@ -1573,7 +1573,10 @@ class GUI_App(tk.Tk):
             self.save_json()
         self.quit()
 
-# Run app
-if __name__ == "__main__":
+def main() -> None:
     app = GUI_App()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

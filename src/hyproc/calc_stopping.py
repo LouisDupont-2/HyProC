@@ -7,8 +7,8 @@ import math
 from functools import lru_cache
 from typing import Literal
 
-from class_models import Element, Layer, Target
-from settings_config import ensure_settings
+from .class_models import Element, Layer, Target
+from .settings_config import ensure_settings
 
 # Load settings
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,10 +42,6 @@ def write_input(layer: Layer, energy: float)->None:
     -------
         None
     """
-    # Finding out where the script is located
-    script_dir = os.path.dirname(os.path.abspath(__file__)) 
-    settings_path = os.path.join(script_dir, 'settings.json')
-
     # Loading the SRIM path from the settings json file
     with open(settings_path,'r', encoding="utf-8") as f:
         filedata = json.load(f)
