@@ -92,7 +92,11 @@ directory. Run `hyproc simulate --help` to see the options.
 
 ## First-run settings
 
-On Windows, HyProC stores settings in `%APPDATA%\HyProC\settings.json`. To retain settings from an older checkout, copy its `settings.json` there before launching. On other platforms HyProC uses `$XDG_CONFIG_HOME/HyProC/settings.json` or `~/.config/HyProC/settings.json`. On first launch it creates the file from the bundled [defaults](src/hyproc/settings.example.json).
+The top-level `run_hyproc.py` uses the `settings.json` beside the script.
+The installed `hyproc` command uses the `settings.json` in the directory
+you launch it from. If the file is missing, the desktop app creates it
+from the bundled [defaults](src/hyproc/settings.example.json). Launch
+either from the project root to use the same settings.
 
 Open **Settings** and configure:
 

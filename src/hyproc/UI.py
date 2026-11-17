@@ -32,10 +32,10 @@ from .curve_import import read_curve_tables, validate_curve
 
 # Main GUI application
 class GUI_App(tk.Tk):
-    def __init__(self):
+    def __init__(self, *, settings_path: Path | None = None):
         super().__init__()
 
-        self.settings_path = ensure_settings()
+        self.settings_path = ensure_settings(settings_path)
         self.timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
         self.title("HyProC")
@@ -1351,8 +1351,8 @@ class GUI_App(tk.Tk):
             self.save_json()
         self.quit()
 
-def main() -> None:
-    app = GUI_App()
+def main(*, settings_path: Path | None = None) -> None:
+    app = GUI_App(settings_path=settings_path)
     app.mainloop()
 
 
