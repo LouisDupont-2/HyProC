@@ -99,9 +99,33 @@
         "ticket": "02-share-simulation-core",
         "commit": "c3442e1"
       }
+    },
+    {
+      "at": "2026-11-17T15:00:34.748Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/03-add-simulate-command.md",
+        "03-implement/03-add-simulate-command/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "03-add-simulate-command"
+      }
+    },
+    {
+      "at": "2026-11-17T15:03:27.720Z",
+      "event": "ticket_done",
+      "phase": "finish-pending",
+      "files": [
+        "03-implement/03-add-simulate-command/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "03-add-simulate-command",
+        "commit": "e510742"
+      }
     }
   ],
-  "current_phase": "ship",
+  "current_phase": "finish-pending",
   "git": {
     "branch": "refactor/hyproc-package-and-cli",
     "base_branch": "main",
