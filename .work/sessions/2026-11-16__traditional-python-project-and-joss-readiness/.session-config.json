@@ -75,6 +75,30 @@
         "ticket": "01-package-desktop",
         "commit": "d545513"
       }
+    },
+    {
+      "at": "2026-11-17T14:55:17.783Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/02-share-simulation-core.md",
+        "03-implement/02-share-simulation-core/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "02-share-simulation-core"
+      }
+    },
+    {
+      "at": "2026-11-17T15:00:23.959Z",
+      "event": "ticket_done",
+      "phase": "ship",
+      "files": [
+        "03-implement/02-share-simulation-core/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "02-share-simulation-core",
+        "commit": "c3442e1"
+      }
     }
   ],
   "current_phase": "ship",
