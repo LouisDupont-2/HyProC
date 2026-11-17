@@ -1167,6 +1167,7 @@ class GUI_App(tk.Tk):
             self.run_button.config(text="Working...", state="disabled")
             self.run_menu_button.config(state="disabled")
             calculation_start_time = time.perf_counter()
+            print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
             document["target"] = make_target(self.target)
             self.target.normalize_all_layers()
             self.refresh_layer_list()
