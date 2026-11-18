@@ -21,30 +21,38 @@ PowerShell in the extracted folder.
 ```powershell
 git clone https://github.com/LouisDupont-2/HyProC.git
 cd HyProC
+```
+
+Install HyProC and its dependencies using the Python interpreter you will
+use to run the application:
+
+```powershell
+python -m pip install .
+```
+
+## Launch HyProC
+
+The recommended way to start HyProC is to open and run
+[run_hyproc.py](run_hyproc.py), located in the project root beside
+`LICENSE` and `CHANGELOG.md`. You can run it in your Python editor using
+the interpreter where you installed the dependencies, or from PowerShell
+in the project root:
+
+```powershell
+python run_hyproc.py
+```
+
+A virtual environment is optional. If you use one, install and launch
+with its Python:
+
+```powershell
 python -m venv .venv
-```
-
-Install the application dependencies in the virtual environment:
-
-```powershell
 .\.venv\Scripts\python.exe -m pip install .
-```
-
-Launch the application:
-
-```powershell
-.\.venv\Scripts\hyproc.exe
-```
-
-You can also run the top-level [run_hyproc.py](run_hyproc.py) script using
-the virtual environment's Python:
-
-```powershell
 .\.venv\Scripts\python.exe run_hyproc.py
 ```
 
-These commands use executables in the environment directly, so activating the
-environment is optional. The installer reads dependencies from `pyproject.toml`.
+These commands use the environment's Python directly, so activation is
+optional. The installer reads dependencies from `pyproject.toml`.
 
 ## Basic workflow
 
@@ -61,7 +69,13 @@ environment is optional. The installer reads dependencies from `pyproject.toml`.
 See the [manual](manual/HyProC_Manual.pdf) for input formats, units, model
 details, and the full workflow.
 
-## Run a saved simulation from Python
+## Integration with scripts and other tools
+
+The Python API and terminal command let other scripts and analysis workflows
+call HyProC's simulation engine. Both use the same calculation code as the
+desktop application.
+
+### Run a saved simulation from Python
 
 ```python
 from hyproc.simulation import simulate
@@ -79,7 +93,7 @@ model runs without Tkinter or writable settings. For a simulation saved with
 SRIM, pass `srim_path` with the installation directory. SRIM uses its own
 input and output files in that directory.
 
-## Run a saved simulation from the terminal
+### Run a saved simulation from the terminal
 
 ```powershell
 .\.venv\Scripts\hyproc.exe simulate simulation.json --output rerun.json
@@ -113,6 +127,7 @@ the defaults distributed to new users.
 
 | Path | Purpose |
 | --- | --- |
+| `run_hyproc.py` | Recommended launcher for the desktop application |
 | `src/hyproc/` | Desktop application and calculation modules |
 | `data/` | Stopping-model parameters |
 | `manual/` | User manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
