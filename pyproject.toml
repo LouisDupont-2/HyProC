@@ -5,10 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "HyProC"
 version = "0.1.0"
-description = "Resonant nuclear reaction analysis excitation-curve simulation"
+description = "Depth profiling by resonant nuclear reaction analysis: simulation of excitation curves for layered targets."
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Louis Dupont" }]
 requires-python = ">=3.10"
-dependencies = ["matplotlib", "numpy", "scipy", "pandas", "periodictable", "openpyxl", "xlrd"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "matplotlib",
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "pandas>=2.2.2",
+    "periodictable>=1.7.1",
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.1",
+]
+
+[project.urls]
+Repository = "https://github.com/LouisDupont-2/HyProC"
 
 [project.scripts]
 hyproc = "hyproc.cli:main"

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.signal import convolve
-from typing import Sequence, Literal
+from typing import Sequence
 from numpy.typing import NDArray
 import os
 from .class_models import Target

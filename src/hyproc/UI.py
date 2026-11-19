@@ -14,9 +14,9 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import threading
 import traceback
-from typing import Sequence, Literal
+from typing import Literal
 
-from .class_models import Element, Layer, Target
+from .class_models import Layer, Target
 from .settings_config import ensure_settings
 from . import UI_geometry
 from . import calc_stopping

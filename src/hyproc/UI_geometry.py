@@ -67,7 +67,7 @@ def create_widgets(self):
         self.left_frame.pack(side='left',fill='y', expand=False, padx=5, pady=5)
         self.left_frame.pack_propagate(False)
 
-        self.import_button = ttk.Button(self.left_frame, text="Import excitation curve", width=20,command=self.load_curve)
+        self.import_button = ttk.Button(self.left_frame, text="Import exp excitation curve", width=20,command=self.load_curve)
         self.import_button.pack(fill="x",padx=10,pady=(10,0))
 
         self.run_frame = ttk.Frame(self.left_frame)

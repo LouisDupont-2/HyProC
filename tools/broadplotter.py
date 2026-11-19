@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import font
 from tkinter import filedialog,messagebox
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,NavigationToolbar2Tk

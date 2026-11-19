@@ -54,6 +54,17 @@ python -m venv .venv
 These commands use the environment's Python directly, so activation is
 optional. The installer reads dependencies from `pyproject.toml`.
 
+## Try an example
+
+In the desktop app, choose **File → Load simulation**, open
+a JSON simulation file, and click **Run Calculation**. The example uses SCS-25-Solid and runs without SRIM.
+
+From the project root, you can also run it with the installed command:
+
+```powershell
+hyproc simulate examples/xxx.json --output rerun.json
+```
+
 ## Basic workflow
 
 1. Open **Reaction** and define the projectile/target atomic number and mass number, as well as the resonance parameters of your measurement (energy, width and peak cross-section).
@@ -109,7 +120,7 @@ directory. Run `hyproc simulate --help` to see the options.
 The top-level `run_hyproc.py` uses the `settings.json` beside the script.
 The installed `hyproc` command uses the `settings.json` in the directory
 you launch it from. If the file is missing, the desktop app creates it
-from the bundled [defaults](src/hyproc/settings.example.json). Launch
+from the bundled [defaults](hyproc/settings.example.json). Launch
 either from the project root to use the same settings.
 
 Open **Settings** and configure:
@@ -128,7 +139,8 @@ the defaults distributed to new users.
 | Path | Purpose |
 | --- | --- |
 | `run_hyproc.py` | Recommended launcher for the desktop application |
-| `src/hyproc/` | Desktop application and calculation modules |
+| `src/hyproc` | Desktop application and calculation modules |
+| `examples/` | Saved simulations you can open in the desktop app or run from the terminal |
 | `data/` | Stopping-model parameters |
 | `manual/` | User manual, LaTeX sources, and [rebuild instructions](manual/README.md) |
 | `tools/` | Supporting scripts |
