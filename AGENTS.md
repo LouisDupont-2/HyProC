@@ -65,3 +65,20 @@ Python Tkinter app simulating resonant-NRA excitation curves for layered targets
 ## Repo
 
 `origin` points to `LouisDupont-2/HyProC`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for LouisDupont-2/HyProC.
+See docs/agents/issue-tracker.md.
+
+### Triage labels
+
+Use the default Matt Pocock triage labels.
+See docs/agents/triage-labels.md.
+
+### Domain docs
+
+This is a single-context project; its glossary is in AGENTS.md.
+See docs/agents/domain.md.
