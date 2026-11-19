@@ -64,6 +64,8 @@ class GUI_App(tk.Tk):
         self.visible_count = 9
         self.chi_val=[]
         self.chi_energy_bounds_history: list[tuple[float | None, float | None] | None] = []
+        self._manual_k_original_value = None
+        self._manual_k_display_value = None
 
         UI_geometry.create_widgets(self)
         self._initialize_standard_controls()
