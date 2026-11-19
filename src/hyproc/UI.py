@@ -1345,11 +1345,11 @@ class GUI_App(tk.Tk):
             print(f"An error occurred: {type(e).__name__}: {e}")
 
     def on_close(self)->None:
-        exitDialogResult = messagebox.askyesnocancel("Quit", "Save the target before closing?")
+        exitDialogResult = messagebox.askyesnocancel("Quit", "Save the simulation before closing?")
         if exitDialogResult is None:
             return
         if exitDialogResult:
-            self.save_json()
+            self.save_simulation()
         self.quit()
 
 def main(*, settings_path: Path | None = None) -> None:
