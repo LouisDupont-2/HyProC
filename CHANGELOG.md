@@ -1,5 +1,11 @@
 # Changelog
 
+## 20 November 2026 - Unreleased
+
+### Added
+
+- Configure a constant off-resonance cross section in reaction settings and include it in simulated target and standard yields.
+
 ## 17 November 2026 - Unreleased
 
 ### Added
