@@ -30,7 +30,7 @@ def cH_make(target: Target, Z2: int)-> tuple[list[float], list[float]]:
     return cH_x, cH_y
 
 # Calculating yield
-def compute_yield(target: Target, x_conv_TFU: NDArray[np.float64], y_conv_TFU: NDArray[np.float64], Z2: int)-> float:
+def compute_yield(target: Target, x_conv_TFU: NDArray[np.float64], y_conv_TFU: NDArray[np.float64], Z2: int, off_resonance: float = 0.0)-> float:
     """
     Calculates the gamma-yield at a given energy based on the hydrogen depth profile of the target and broadening function.
 
@@ -78,18 +78,25 @@ def compute_yield(target: Target, x_conv_TFU: NDArray[np.float64], y_conv_TFU: N
     # Setting up boundaries
     a = min(0.0, float(np.min(x_conv_TFU)))
     b = float(np.max(x_conv_TFU))
-    if b <= a:
-        return 0.0
-
-    res = float(np.min(np.diff(np.sort(x_conv_TFU))))  # use native spacing
-    xa = np.arange(a, b + res, res)
-    f1 = cH_fct(xa)
-    f2 = broad(xa)
-    area = float(np.sum(f1 * f2) * res)
+    area = 0.0
+    if b > a:
+        res = float(np.min(np.diff(np.sort(x_conv_TFU))))  # use native spacing
+        xa = np.arange(a, b + res, res)
+        f1 = cH_fct(xa)
+        f2 = broad(xa)
+        area = float(np.sum(f1 * f2) * res)
     if not np.isfinite(area):
         raise ValueError("Computed yield integral is not finite.")
 
-    return area
+    # A constant cross section contributes throughout the target, including
+    # depths outside the finite grid used for the resonance convolution.
+    baseline = off_resonance * sum(
+        layer["areal_density"] * sum(
+            element["percent_at"] for element in layer["elements"] if element["Z"] == Z2
+        )
+        for layer in target["layers"]
+    )
+    return area + baseline
 
 def chi_squared_test(x_exp: list[float], y_exp: list[float], x_sim: list[float], y_sim: list[float]) -> float:
     """

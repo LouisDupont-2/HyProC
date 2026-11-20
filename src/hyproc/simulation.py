@@ -89,6 +89,7 @@ def _simulate(
         "Gamma": resonance["Gamma"],
         "sigma_R": resonance["Sigma"],
         "Z1": projectile["Z1"],
+        "off_resonance": resonance["Off-resonance"],
     }
 
     manual_k = options.get("manual_k_factor", "").strip()
@@ -112,7 +113,7 @@ def _simulate(
             standard_energy, standard, beam_width, options["doppler"], straggling_model,
             **broadening_arguments,
         )
-        standard_integral = calc_curve.compute_yield(standard, x, y, z2)
+        standard_integral = calc_curve.compute_yield(standard, x, y, z2, resonance["Off-resonance"])
         if not np.isfinite(standard_integral) or standard_integral == 0:
             raise ValueError(f"Standard yield integral is invalid ({standard_integral}).")
         normalization = float(options["standard_yield"]) / standard_integral
@@ -130,5 +131,5 @@ def _simulate(
             saveData=path is not None, savepath=str(path) if path is not None else None,
             **broadening_arguments,
         )
-        yields.append(float(normalization * calc_curve.compute_yield(target, x, y, z2)))
+        yields.append(float(normalization * calc_curve.compute_yield(target, x, y, z2, resonance["Off-resonance"])))
     return SimulationResult([energy + offset for energy in incident_energies], yields, normalization, standard_stopping)

@@ -26,6 +26,7 @@ class ReactionDialog(tk.Toplevel):
             self._resonance_values = {
                 key: str(resonance[key]) for key in ("E_R", "Gamma", "Sigma")
             }
+            self._resonance_values["Off-resonance"] = str(resonance.get("Off-resonance", 0.0))
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
             messagebox.showerror("Reaction settings", f"Could not load reaction settings:\n\n{exc}", parent=self)
             self.destroy()
@@ -58,6 +59,7 @@ class ReactionDialog(tk.Toplevel):
             ("E_R", "Resonance energy E_R (keV)", self._resonance_values["E_R"]),
             ("Gamma", "Resonance width Gamma_R (keV)", self._resonance_values["Gamma"]),
             ("Sigma", "Peak cross section Sigma_R (barn)", self._resonance_values["Sigma"]),
+            ("Off-resonance", "Off-resonance cross section (barn)", self._resonance_values["Off-resonance"]),
         )
         self._add_fields(resonance_frame, resonance_fields, start_row=1)
 
@@ -101,13 +103,15 @@ class ReactionDialog(tk.Toplevel):
                     raise ValueError(f"No isotope mass is available for {z_key}={z_value}, {a_key}={a_value}.")
 
             resonance_values = {}
-            for key in ("E_R", "Gamma", "Sigma"):
+            for key in ("E_R", "Gamma", "Sigma", "Off-resonance"):
                 value = float(self.entries[key].get().strip())
                 if not math.isfinite(value):
                     raise ValueError(f"{key} must be a finite number.")
                 resonance_values[key] = value
             if resonance_values["E_R"] <= 0 or resonance_values["Gamma"] <= 0 or resonance_values["Sigma"] <= 0:
                 raise ValueError("E_R, Gamma, and Sigma must be greater than zero.")
+            if resonance_values["Off-resonance"] < 0:
+                raise ValueError("Off-resonance must be nonnegative.")
 
             self.settings["reaction"].update({key: str(value) for key, value in reaction_values.items()})
             self.settings["resonance"].update(resonance_values)

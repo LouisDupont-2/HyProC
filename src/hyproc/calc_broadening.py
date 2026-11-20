@@ -261,7 +261,7 @@ def save(vector1: Sequence[float], vector2: Sequence[float], filename: str)-> No
             f.write(f"{v1}\t{v2}\n")
 
 
-def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
+def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int, off_resonance: float = 0.0)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
@@ -413,8 +413,8 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         if Doppler:
             save(x, gauss(x,E_center, delta_D), os.path.join(savepath, "Doppler.txt"))
         save(x, y1,os.path.join(savepath, "Total_Gauss.txt"))
-        save(x, lorentz(x,E_R, Gamma,sigma_R), os.path.join(savepath, "xsec.txt"))
-        save(x_conv, y_conv,os.path.join(savepath, "Total_Broadening.txt"))
-        save(x_conv_TFU, y_conv_TFU,os.path.join(savepath, "Total_Broadening_TFU.txt"))
+        save(x, lorentz(x,E_R, Gamma,sigma_R) + off_resonance, os.path.join(savepath, "xsec.txt"))
+        save(x_conv, y_conv + off_resonance,os.path.join(savepath, "Total_Broadening.txt"))
+        save(x_conv_TFU, y_conv_TFU + np.where(x_conv_TFU <= sum(layer["areal_density"] for layer in target["layers"]), off_resonance, 0.0),os.path.join(savepath, "Total_Broadening_TFU.txt"))
 
     return center, x_conv_TFU, y_conv_TFU, layers_contribution, outOfTarget
