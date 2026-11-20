@@ -112,7 +112,7 @@ Target \& Std:
 Reaction:
 \vspace{-\parskip}
 \begin{itemize}
-    \item Reaction settings: Opens a dialog for projectile and target atomic and mass numbers ($Z_1$, $A_1$, $Z_2$, $A_2$), and resonance energy, width, and peak cross section ($E_R$, $\Gamma_R$, $\Sigma_R$). The resonance shape is currently fixed to Lorentzian. Confirm saves the values to \texttt{settings.json}; Cancel discards unsaved edits.
+    \item Reaction settings: Opens a dialog for projectile and target atomic and mass numbers ($Z_1$, $A_1$, $Z_2$, $A_2$), resonance energy, width, and Lorentzian peak cross section ($E_R$, $\Gamma_R$, $\Sigma_R$), and a constant off-resonance cross section in barn. Confirm saves the values to \texttt{settings.json}; Cancel discards unsaved edits.
 \end{itemize}
 
 Plot:
@@ -266,14 +266,14 @@ with
 \begin{equation}
     F(E, E_i, x) =  \sigma(E) \ast B(E,E_i) \ast D(E) \ast S(E,x)
 \end{equation}
-where $\sigma(E)$ is the resonance cross-section, $B(E,E_i)$ is the beam width, $D(E)$ is the Quantum Doppler broadening, and $S(E,x)$ is the straggling broadening. The symbol $\ast$ denotes convolution. The cross section is assumed to have a Lorentzian shape:  
+where $\sigma(E)$ is the reaction cross section, $B(E,E_i)$ is the beam width, $D(E)$ is the Quantum Doppler broadening, and $S(E,x)$ is the straggling broadening. The symbol $\ast$ denotes convolution. The cross section is a Lorentzian plus a constant off-resonance cross section:
 \begin{equation}
-    \sigma(E) =
+    \sigma(E) = \sigma_\text{off} +
     \sigma_R\,
     \frac{\Gamma_R^2/4}
     {(E-E_R)^2+\Gamma_R^2/4},
 \end{equation}
-where $E_R$ is the resonance energy, $\Gamma_R$ is the resonance width and $\sigma_R$ is the resonance intensity. The beam width, Doppler, and straggling contributions are treated as independent Gaussian:
+where $E_R$ is the resonance energy, $\Gamma_R$ is the resonance width, $\sigma_R$ is the Lorentzian peak above the baseline, and $\sigma_\text{off}$ is the constant off-resonance cross section. The baseline contributes throughout the target and the standard; it defaults to zero for older settings and simulation files. The beam width, Doppler, and straggling contributions are treated as independent Gaussian:
 \begin{equation}
     G(E) =
     \frac{1}{\sqrt{2\pi}\,\delta_G}
@@ -285,7 +285,7 @@ For each incident energy, HyProC first uses the stopping cross-sections and area
 \begin{equation}
     \delta_\text{Gauss} = \sqrt{\delta_B^2 + \delta_S^2 + \delta_D^2}.
 \end{equation}
-The program then convolves this Gaussian with the Lorentzian resonance cross-section to obtain a Voigt-shaped profile. This profile is then mapped from energy to areal depth (using stopping cross-sections), yielding the instrument function $F(E,E_i,x)$ used in equation~\ref{eq:yield}. This process can be visually followed in Figure~\ref{fig:combined}.
+The program then convolves this Gaussian with the Lorentzian resonance cross section to obtain a Voigt-shaped profile. This profile is mapped from energy to areal depth (using stopping cross sections). The constant baseline is added across the full target when evaluating equation~\ref{eq:yield}, including depths outside the finite resonance grid. This process can be visually followed in Figure~\ref{fig:combined}.
 
 \begin{figure}[h!]
     \centering
@@ -311,7 +311,7 @@ Broadening data can be saved by ticking the "Save broadening data" box. When cal
 .5 Total\_Broadening\_TFU.txt.
 }
 
-\texttt{Total\_Gauss.txt} contains the combined Gaussian from beam width, straggling, and (when enabled) Doppler broadening. \texttt{xsec.txt} contains the Lorentzian resonance cross-section. Their convolution is saved as \texttt{Total\_Broadening.txt}; this is the energy-axis profile shown in Figure~\ref{fig:combined}(C). \texttt{Total\_Broadening\_TFU.txt} contains the corresponding profile mapped to areal depth in TFU, as in Figure~\ref{fig:combined}(D). The separate \texttt{Beam.txt}, \texttt{Stragg.txt}, and \texttt{Doppler.txt} files show the individual Gaussian components used to form the total Gaussian.
+\texttt{Total\_Gauss.txt} contains the combined Gaussian from beam width, straggling, and (when enabled) Doppler broadening. \texttt{xsec.txt} contains the Lorentzian and off-resonance cross sections. The broadened profile is saved as \texttt{Total\_Broadening.txt}; \texttt{Total\_Broadening\_TFU.txt} contains the corresponding profile mapped to areal depth in TFU. These files cover the finite resonance grid; the yield also includes the baseline outside that grid. The separate \texttt{Beam.txt}, \texttt{Stragg.txt}, and \texttt{Doppler.txt} files show the individual Gaussian components used to form the total Gaussian.
 
 A Session folder is created when broadening data are saved or that the track target changes option is enabled for the first time after the UI is launched. A Run folder is created whenever a calculation is made (with the save broadening data on or with the target tracking on). For each incident energy, a datapoint folder is created.
 
