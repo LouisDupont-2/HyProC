@@ -1,8 +1,8 @@
 # HyProC
 
-HyProC (Hydrogen Profiling by Convultion) is a Python code that simulates Resonant Nuclear Reaction Analysis (RNRA) excitation curves to do hydrogen depth profiling (other elements can also be depth-profiled but it isn't the code's current speciality). Build a layered target, simulate its excitation curve, and compare it with experimental measurements using plots and chi-squared history.
+HyProC (Hydrogen Profiling by Convolution) is a Python application that simulates Resonant Nuclear Reaction Analysis (RNRA) excitation curves for hydrogen depth profiling (other elements can also be depth-profiled but it isn't the code's current speciality). Build a layered target, simulate its excitation curve, and compare it with experimental measurements using plots and chi-squared history.
 
-This program was first developped in the context of a [Master Thesis](https://researchportal.unamur.be/en/studentTheses/profilage-dhydrog%C3%A8ne-par-rnra/) at the [University of Namur](https://www.unamur.be/en) and is now one of the focus point of a [joint PhD](https://research.kuleuven.be/portal/en/project/3E260097) between the University of Namur and [KU Leuven](https://www.kuleuven.be/kuleuven).
+This program was originally developed in the context of a [Master Thesis](https://researchportal.unamur.be/en/studentTheses/profilage-dhydrog%C3%A8ne-par-rnra/) at the [University of Namur](https://www.unamur.be/en) and is now one of the focus points of a [joint PhD](https://research.kuleuven.be/portal/en/project/3E260097) between the University of Namur and [KU Leuven](https://www.kuleuven.be/kuleuven).
 
 For the calculation models and detailed controls, see the
 [user manual](manual/HyProC_Manual.pdf).
@@ -11,59 +11,80 @@ For the calculation models and detailed controls, see the
 
 ## Installation
 
-The instructions below use Windows PowerShell. SRIM integration requires an
-external Windows SRIM installation; SRIM is not included in this repository.
+These instructions use Windows PowerShell. You need Python 3.10 or newer
+with Tkinter. Git is only needed if you choose to clone the repository.
 
-You need Python 3.10 or newer with Tkinter, and Git if cloning from a terminal.
-Alternatively, download and extract the repository ZIP from GitHub and open
-PowerShell in the extracted folder.
+### Download HyProC
+
+Download and extract the repository ZIP from GitHub, then open PowerShell
+in the extracted folder containing `pyproject.toml`. If you have Git
+installed, you can clone the repository instead:
 
 ```powershell
 git clone https://github.com/LouisDupont-2/HyProC.git
 cd HyProC
 ```
 
-Install HyProC and its dependencies using the Python interpreter you will
-use to run the application:
+### Choose an installation method
+
+From PowerShell in the HyProC folder, follow **one** of the two methods
+below. Some of HyProC's Python libraries have minimum version requirements
+(see [pyproject.toml](pyproject.toml) for details). A virtual environment
+keeps HyProC's dependencies separate from those of your other projects.
+
+#### Install in a virtual environment (recommended)
+
+Create a virtual environment named `.venv`, then install HyProC and its
+dependencies into it:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install .
+```
+
+This command uses the virtual environment's Python directly, so you do not
+need to activate it for installation. If you prefer to activate the virtual environment, run the following commands in PowerShell from the HyProC folder. After activation, `python` uses the virtual environment in that PowerShell window: 
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python run_hyproc.py
+```
+
+#### Install without a virtual environment
+
+To install HyProC and its dependencies into your current Python environment,
+run:
 
 ```powershell
 python -m pip install .
 ```
 
+
 ## Launch HyProC
 
-The recommended way to start HyProC is to open and run
-[run_hyproc.py](run_hyproc.py), located in the project root beside
-`LICENSE` and `CHANGELOG.md`. You can run it in your Python editor using
-the interpreter where you installed the dependencies, or from PowerShell
-in the project root:
+Open PowerShell in the HyProC folder. If you installed HyProC without a virtual environment, or already activated it in this PowerShell window, run:
 
 ```powershell
 python run_hyproc.py
 ```
 
-A virtual environment is optional. If you use one, install and launch
-with its Python:
+If you installed HyProC in `.venv` and prefer to run it without activation, use:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\python.exe run_hyproc.py
 ```
 
-These commands use the environment's Python directly, so activation is
-optional. The installer reads dependencies from `pyproject.toml`.
-
 ## Try an example
 
-In the desktop app, choose **File → Load simulation**, open
-a JSON simulation file, and click **Run Calculation**. The example uses SCS-25-Solid and runs without SRIM.
+In the desktop app, choose **File → Load simulation**, open one of the JSON simulation files located in the `examples/` folder, and click **Run Calculation**. The example uses SCS-25-Solid for stopping cross-sections and thus runs without SRIM.
 
-From the project root, you can also run it with the installed command:
+From the HyProC folder, use `hyproc` if you installed it in your current Python environment or activated .venv in this PowerShell window.
 
 ```powershell
-hyproc simulate examples/xxx.json --output rerun.json
+hyproc simulate "examples/15N on 1H - a-SiH16 SiO2 Si(sub) sample.json" --output rerun.json
 ```
+
+If you installed HyProC in `.venv` and haven’t activated it, replace ``hyproc`` with ``.\.venv\Scripts\hyproc.exe``.
 
 ## Basic workflow
 
@@ -107,7 +128,7 @@ input and output files in that directory.
 ### Run a saved simulation from the terminal
 
 ```powershell
-.\.venv\Scripts\hyproc.exe simulate simulation.json --output rerun.json
+hyproc simulate "simulation.json" --output rerun.json
 ```
 
 The command uses the same energy selection as the Python example. It writes
@@ -120,7 +141,7 @@ directory. Run `hyproc simulate --help` to see the options.
 The top-level `run_hyproc.py` uses the `settings.json` beside the script.
 The installed `hyproc` command uses the `settings.json` in the directory
 you launch it from. If the file is missing, the desktop app creates it
-from the bundled [defaults](hyproc/settings.example.json). Launch
+from the bundled [defaults](src/hyproc/settings.example.json). Launch
 either from the project root to use the same settings.
 
 Open **Settings** and configure:

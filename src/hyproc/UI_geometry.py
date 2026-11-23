@@ -84,7 +84,7 @@ def create_widgets(self):
         self.run_menu_button = ttk.Button(self.run_frame, text='▼', width=3, command=self._post_run_menu, style="Center.TButton")
         self.run_menu_button.pack(side='left', ipady=10)
 
-        self.extract_button = ttk.Button(self.left_frame, text='Extract profile', command=self.plot_Z2_profile)
+        self.extract_button = ttk.Button(self.left_frame, text='Plot profile', command=self.plot_Z2_profile)
         self.extract_button.pack(fill="x",padx=10,pady=(0,10), ipady=5)     
 
         #self.load_target_button = ttk.Button(self.left_frame, text='Load target',command=self.load_target)
