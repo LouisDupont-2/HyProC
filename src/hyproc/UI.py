@@ -782,6 +782,7 @@ class GUI_App(tk.Tk):
     def _simulation_document(self, settings: dict) -> dict:
         reaction = {key: settings["reaction"][key] for key in ("Z1", "A1", "Z2", "A2")}
         resonance = {key: settings["resonance"][key] for key in ("E_R", "Gamma", "Sigma")}
+        resonance["Off-resonance"] = settings["resonance"].get("Off-resonance", 0.0)
         manual_k = self.manual_k_entry.get()
         if manual_k == self._manual_k_display_value and self._manual_k_original_value is not None:
             manual_k = self._manual_k_original_value

@@ -82,5 +82,12 @@ def validate_physics(
         if not np.isfinite(value) or value <= 0:
             raise ValueError(f"Saved resonance value {key} must be finite and greater than zero.")
         resonance_values[key] = value
+    try:
+        baseline = float(resonance.get("Off-resonance", 0.0))
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("Saved resonance value Off-resonance must be numeric.") from exc
+    if not np.isfinite(baseline) or baseline < 0:
+        raise ValueError("Saved resonance value Off-resonance must be finite and nonnegative.")
+    resonance_values["Off-resonance"] = baseline
     return reaction_values, resonance_values
 
