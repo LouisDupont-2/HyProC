@@ -1,5 +1,12 @@
 # Changelog
 
+## 24 November 2026 - Unreleased
+
+### Changed
+
+- The Standard tab now shows the same editor layout as the Target tab, with its fixed layer controls disabled.
+- New and loaded standards use a fixed areal density of 1500 TFU; saved simulations retain their stored value.
+
 ## 20 November 2026 - Unreleased
 
 ### Added
