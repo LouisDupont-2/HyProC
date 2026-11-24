@@ -23,7 +23,7 @@ from . import calc_stopping
 from . import calc_curve
 from .resources import find_resource
 from .simulation import _simulate, energy_values, projectile_arguments
-from .simulation_io import load_simulation, make_target, save_simulation, validate_physics
+from .simulation_io import load_simulation, make_target, save_simulation, validate_physics, validate_temperature
 from .dialog_energy_range import EnergyRangeDialog
 from .dialog_settings import SettingsDialog
 from .dialog_reaction import ReactionDialog
@@ -823,6 +823,8 @@ class GUI_App(tk.Tk):
             "options": {
                 "standard_yield": self.std_Yield_entry.get(),
                 "manual_k_factor": manual_k,
+                "target_temperature": self.target_temperature_entry.get(),
+                "standard_temperature": self.standard_temperature_entry.get(),
                 "beam_width": self.beamSD_entry.get(),
                 "offset": self.offset_entry.get(),
                 "stopping_model": self.stopping_model_combobox.get(),
@@ -933,6 +935,10 @@ class GUI_App(tk.Tk):
             manual_k_factor = options.get("manual_k_factor", "")
             if not isinstance(manual_k_factor, str):
                 raise ValueError("Saved manual K factor must be a string.")
+            target_temperature = options.get("target_temperature", "20")
+            standard_temperature = options.get("standard_temperature", "20")
+            validate_temperature(target_temperature, "Target")
+            validate_temperature(standard_temperature, "Standard")
             if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
                 raise ValueError("Saved calculation flags must be boolean values.")
             autoscale = options.get("autoscale", True)
@@ -1008,7 +1014,12 @@ class GUI_App(tk.Tk):
         self._manual_k_display_value = None
         self.manual_k_entry.delete(0, tk.END)
         self.manual_k_entry.insert(0, manual_k_factor)
+        self.standard_temperature_entry.state(["!disabled"])
+        self.standard_temperature_entry.delete(0, tk.END)
+        self.standard_temperature_entry.insert(0, str(standard_temperature))
         self.on_manual_k_change()
+        self.target_temperature_entry.delete(0, tk.END)
+        self.target_temperature_entry.insert(0, str(target_temperature))
         self.beamSD_entry.delete(0, tk.END)
         self.beamSD_entry.insert(0, options["beam_width"])
         self.offset_entry.delete(0, tk.END)
@@ -1158,6 +1169,9 @@ class GUI_App(tk.Tk):
                 settings = json.load(file)
             document = self._simulation_document(settings)
             options = document["options"]
+            validate_temperature(options["target_temperature"], "Target")
+            if not options["manual_k_factor"].strip():
+                validate_temperature(options["standard_temperature"], "Standard")
             options["stopping_model"] = self._get_stopping_model()
             try:
                 offset = float(options["offset"])

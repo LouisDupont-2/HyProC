@@ -261,7 +261,17 @@ def save(vector1: Sequence[float], vector2: Sequence[float], filename: str)-> No
             f.write(f"{v1}\t{v2}\n")
 
 
-def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int, off_resonance: float = 0.0)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
+def thermal_doppler_sd(E_R: float, temperature_c: float, projectile_mass: float, target_mass: float) -> float:
+    """Thermal target-motion width in lab beam energy (keV), free-gas approximation.
+
+    The target's one-dimensional Maxwellian velocity distribution gives
+    sigma_E² = 2 E_R k_B T (projectile mass / reacting-nucleus mass).
+    """
+    boltzmann_keV_per_K = 8.617333262145e-8
+    return float(np.sqrt(2 * E_R * boltzmann_keV_per_K * (temperature_c + 273.15) * projectile_mass / target_mass))
+
+
+def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int, off_resonance: float = 0.0, thermal_sd: float = 0.0)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
@@ -306,7 +316,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         delta_S = stragg(E_in, E_loss, index, target, straggling_model, E_R, Z1)
 
     # Total Gaussian broadening
-    SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2)
+    SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2+thermal_sd**2)
 
     # Where to center the broadening curve
     if index == -2:
