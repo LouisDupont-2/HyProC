@@ -105,7 +105,7 @@ Target \& Std:
     \item Load target: Reads a target from a .json file, replacing the current target.
     \item Save target: Saves the current target description to a .json file.
 
-    \item Load standard: Reads a standard from a .json file, replacing the current standard. If the file contains multiple layers, the user selects one layer; the program then uses a fixed standard areal density of 1750 TFU.
+    \item Load standard: Reads a standard from a .json file, replacing the current standard. If the file contains multiple layers, the user selects one layer; the program then uses a fixed standard areal density of 1500 TFU.
     \item Save standard: Saves the current standard description to a .json file.
 \end{itemize}
 
@@ -155,7 +155,7 @@ Opens a separate plot of the hydrogen depth profile derived from the current tar
 \subsection{Standard and K factor}
 The Standard panel contains an optional manual K factor, the measured standard yield in Counts/$\mu$C, and Load/Save buttons for the standard. Entering a positive manual K factor bypasses the standard-based K calculation and disables the standard controls. 
 
-Without a manual K factor, load a standard and enter its measured yield. A standard should be uniform; if the JSON file contains multiple layers, HyProC asks which layer to retain. The standard is treated as one layer with a fixed areal density of 1750 TFU. Its yield is evaluated at $E_R+100\,\Gamma_R$ when calculating K. 
+Without a manual K factor, load a standard and enter its measured yield. A standard should be uniform; if the JSON file contains multiple layers, HyProC asks which layer to retain. The standard is treated as one layer with a fixed areal density of 1500 TFU. Its yield is evaluated at $E_R+100\,\Gamma_R$ when calculating K. 
 
 See section~\ref{sec:efficiency} for details on the $K$ factor and standard.
 
@@ -327,7 +327,7 @@ It is on paper possible to obtain those two quantities to calculate $K$, but it 
 \end{equation}
 which then can be plugged back into equation (\ref{eq:yield}) for a sample of interest.
 
-The standard has the same layer and composition format as the target but is treated as a single layer with a fixed areal density of 1750 TFU (not editable in the UI).
+The standard has the same layer and composition format as the target but is treated as a single layer with a fixed areal density of 1500 TFU (not editable in the UI).
 
 When using a standard to calculate $K$, the program evaluates the integral at an incident energy of
 \[

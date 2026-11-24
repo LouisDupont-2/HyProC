@@ -64,8 +64,8 @@ class Layer(dict):
         return None
 
 class Target(dict):
-    def __init__(self)->None:
-        self["layers"] = [Layer()] 
+    def __init__(self, *, areal_density: float = 1000.0)->None:
+        self["layers"] = [Layer(AD=areal_density)]
 
     def normalize_all_layers(self) -> None:
         for i, layer in enumerate(self["layers"]):

@@ -36,3 +36,35 @@ def test_shared_tabs_have_matching_layout_and_standard_layer_controls_disabled()
         assert not standard.composition_percent_entry.instate(['disabled'])
     finally:
         root.destroy()
+
+
+def test_standard_layer_display_and_controls_survive_manual_k_toggle():
+    from pathlib import Path
+    from hyproc.UI import GUI_App
+
+    app = GUI_App(settings_path=Path('src/hyproc/settings.example.json').resolve())
+    app.withdraw()
+    try:
+        def check_standard():
+            layer = app.std_target['layers'][0]
+            assert app.Std_layer_listbox.size() == 1
+            assert str(layer['areal_density']) in app.Std_layer_listbox.get(0)
+            assert app.Std_AD_entry.get() == str(layer['areal_density'])
+            assert app.Std_layer_listbox.cget('state') == 'disabled'
+            assert app.Std_AD_entry.instate(['disabled'])
+            for name in ('add_layer_button', 'remove_layer_button', 'up_button', 'down_button', 'duplicate_button'):
+                assert getattr(app, 'Std_' + name).instate(['disabled'])
+            assert not app.Std_add_element_button.instate(['disabled'])
+
+        assert app.std_target['layers'][0]['areal_density'] == 1500.0
+        assert app.Std_AD_entry.get() == '1500.0'
+        check_standard()
+        app.manual_k_entry.insert(0, '1')
+        app.on_manual_k_change()
+        app.manual_k_entry.delete(0, tk.END)
+        app.on_manual_k_change()
+        app.std_target['layers'][0]['areal_density'] = 1500
+        app.refresh_Std_list()
+        check_standard()
+    finally:
+        app.destroy()
