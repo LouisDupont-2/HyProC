@@ -211,11 +211,13 @@ The check and stopping assignment are then performed sequentially through the ta
 The default model is SCS-25-Solid \cite{meersschaut2026flexible}. It calculates electronic stopping using the tabulated SCS-25-Solid parametrization from Meersschaut \textit{et al.} and adds universal Ziegler nuclear stopping. In compounds, electronic and nuclear components are each combined using the atomic fractions (Bragg addition). The incident energy is converted to energy per projectile mass unit for the electronic parametrization. SRIM \cite{ziegler2010srim} is available as an alternative and requires a valid SRIM path in Settings.
 
 \subsection{Thermal Doppler}
-Thermal motion of the reacting target nuclei broadens the resonance in beam energy. In the free-gas approximation its standard deviation is
+Thermal motion of the reacting target nuclei changes their velocity relative to the incident projectile and broadens the resonance in lab-frame beam energy. HyProC uses the one-dimensional Maxwellian velocity distribution of a free target nucleus. In this approximation the thermal contribution is Gaussian with standard deviation
 \begin{equation}
     \delta_T = \sqrt{2 E_R k_B T m_1/m_2},
 \end{equation}
-where $T$ is the absolute temperature and $m_1$ and $m_2$ are the projectile and reacting target isotope masses. The target and standard temperatures are specified separately and default to 20 °C, including in older simulation files. Thermal Doppler broadening is always included independently of the Quantum Doppler checkbox.
+Here $E_R$ is the resonance energy in keV, $k_B=8.617333262145\times10^{-8}$ keV/K, $T$ is the absolute temperature in K, and $m_1$ and $m_2$ are the projectile and reacting target isotope masses in the same units. The entered temperature in °C is converted to kelvin by adding 273.15. At absolute zero this thermal contribution is zero; at higher temperatures it grows as $\sqrt{T}$. The model uses the mass of the profiled isotope specified by $Z_2,A_2$, not a mass averaged over the target composition.
+
+The target and standard temperatures are specified separately and default to 20 °C, including in older simulation files. The standard temperature is used for standard normalization; a manual $K$ factor disables that input and bypasses the standard calculation. Thermal Doppler broadening is always included independently of the Quantum Doppler checkbox. This free-gas approximation does not model the material's lattice vibration spectrum or temperature-dependent binding effects.
 
 \subsection{Quantum Doppler}
 This option includes a Gaussian Doppler contribution associated with hydrogen bound in the target matrix. The implementation uses values for Si, Ti, and Pb matrices and an effective-atomic-number fit for other matrices; compounds use a Bragg-rule effective value. The checkbox in Options switches this contribution on or off.
@@ -272,16 +274,16 @@ HyProC calculates the excitation curve for a given target and incident energy ra
 \end{equation}
 with 
 \begin{equation}
-    F(E, E_i, x) =  \sigma(E) \ast B(E,E_i) \ast D(E) \ast S(E,x)
+    F(E, E_i, x) =  \sigma(E) \ast B(E,E_i) \ast D(E) \ast T_\mathrm{D}(E) \ast S(E,x)
 \end{equation}
-where $\sigma(E)$ is the reaction cross section, $B(E,E_i)$ is the beam width, $D(E)$ is the Quantum Doppler broadening, and $S(E,x)$ is the straggling broadening. The symbol $\ast$ denotes convolution. The cross section is a Lorentzian plus a constant off-resonance cross section:
+where $\sigma(E)$ is the reaction cross section, $B(E,E_i)$ is the beam width, $D(E)$ is the quantum Doppler broadening, $T_\mathrm{D}(E)$ is the thermal Doppler broadening, and $S(E,x)$ is the straggling broadening. The symbol $\ast$ denotes convolution. The cross section is a Lorentzian plus a constant off-resonance cross section:
 \begin{equation}
     \sigma(E) = \sigma_\text{off} +
     \sigma_R\,
     \frac{\Gamma_R^2/4}
     {(E-E_R)^2+\Gamma_R^2/4},
 \end{equation}
-where $E_R$ is the resonance energy, $\Gamma_R$ is the resonance width, $\sigma_R$ is the Lorentzian peak above the baseline, and $\sigma_\text{off}$ is the constant off-resonance cross section. The baseline contributes throughout the target and the standard; it defaults to zero for older settings and simulation files. The beam width, Doppler, and straggling contributions are treated as independent Gaussian:
+where $E_R$ is the resonance energy, $\Gamma_R$ is the resonance width, $\sigma_R$ is the Lorentzian peak above the baseline, and $\sigma_\text{off}$ is the constant off-resonance cross section. The baseline contributes throughout the target and the standard; it defaults to zero for older settings and simulation files. Beam width, quantum Doppler, thermal Doppler, and straggling are treated as independent Gaussian contributions:
 \begin{equation}
     G(E) =
     \frac{1}{\sqrt{2\pi}\,\delta_G}
@@ -289,7 +291,7 @@ where $E_R$ is the resonance energy, $\Gamma_R$ is the resonance width, $\sigma_
 \end{equation}
 $K$ is a constant representing the efficiency of the experimental system, including the intrinsic efficiency of the detector and its solid angle. See section~\ref{sec:efficiency} for details.
 
-For each incident energy, HyProC first uses the stopping cross-sections and areal densities of the target layers to determine the energy loss through the target, the layer and the depth at which the nominal resonance energy $E_R$ is reached. Based on that, the program calculates the energy straggling of the ion beam as well as the quantum Doppler contributions, based on the models described in the previous sections. Those contributions are combined with the user-specified beam width to form a total Gaussian broadening:
+For each incident energy, HyProC first uses the stopping cross-sections and areal densities of the target layers to determine the energy loss through the target, the layer and the depth at which the nominal resonance energy $E_R$ is reached. It calculates energy straggling and, when enabled, quantum Doppler broadening using the models described above. The thermal width uses $E_R$ and the temperature of the target or standard being calculated. The Gaussian standard deviations are combined in quadrature:
 \begin{equation}
     \delta_\text{Gauss} = \sqrt{\delta_B^2 + \delta_S^2 + \delta_D^2 + \delta_T^2}.
 \end{equation}
