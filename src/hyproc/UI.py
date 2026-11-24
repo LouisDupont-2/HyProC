@@ -30,6 +30,8 @@ from .dialog_reaction import ReactionDialog
 from .dialog_import import CurveImportDialog
 from .curve_import import read_curve_tables, validate_curve
 
+STRAGGLING_MODELS = ("None", "Rud", "Rud corr", "Bohr")
+
 # Main GUI application
 class GUI_App(tk.Tk):
     def __init__(self, *, settings_path: Path | None = None):
@@ -47,8 +49,6 @@ class GUI_App(tk.Tk):
         self.style.configure("Default.TButton", background="#f0f0f0", foreground="black")
         self.style.configure("Working.TButton", background="orange", foreground="black")
 
-        # Load settings for constants
-        self.Z2 = self.load_Z2(self.settings_path)
         self.Z2_profile = None
 
         self.runNbr = 0
@@ -68,6 +68,7 @@ class GUI_App(tk.Tk):
         self._manual_k_display_value = None
 
         UI_geometry.create_widgets(self)
+        self.reload_reaction_settings()
         self._initialize_standard_controls()
         self.refresh_layer_list()
         self.refresh_element_list() 
@@ -144,15 +145,6 @@ class GUI_App(tk.Tk):
             state="disabled" if manual_k_enabled else "normal",
         )
     
-    def load_Z2(self, settings_path)->int:
-        """
-        Loads Z2 (target atomic number) from settings.
-        """
-        with open(settings_path, 'r', encoding="utf-8") as f:
-            settings = json.load(f)
-        Z2 = int(settings["reaction"]["Z2"])
-        return Z2
-
     def update_chi_plot(self)->None:
         self.ax1.clear()
         visible_values = self.chi_val[self.start_ctr:self.start_ctr + self.visible_count]
@@ -940,7 +932,7 @@ class GUI_App(tk.Tk):
                         raise ValueError("Saved chi-squared energy bounds must be finite numbers.")
             if chi_energy_min.strip() and chi_energy_max.strip() and float(chi_energy_min) > float(chi_energy_max):
                 raise ValueError("Saved chi-squared minimum energy is greater than its maximum.")
-            if options["straggling_model"] not in self.straggling_model_combobox["values"]:
+            if options["straggling_model"] not in STRAGGLING_MODELS:
                 raise ValueError("The saved straggling model is not supported.")
             stopping_model = options.get("stopping_model")
             if stopping_model not in self.stopping_model_combobox["values"]:
@@ -1000,7 +992,10 @@ class GUI_App(tk.Tk):
         self.offset_entry.delete(0, tk.END)
         self.offset_entry.insert(0, options["offset"])
         self.stopping_model_combobox.set(stopping_model)
-        self.straggling_model_combobox.set(options["straggling_model"])
+        straggling_model = options["straggling_model"]
+        if straggling_model not in self.straggling_model_combobox["values"]:
+            straggling_model = "Bohr"
+        self.straggling_model_combobox.set(straggling_model)
         self.Doppler_bool.set(options["doppler"])
         self.broadSave_bool.set(options["save_broadening_data"])
         self.TrackTargetChange_bool.set(options["track_target_changes"])
@@ -1075,7 +1070,13 @@ class GUI_App(tk.Tk):
     def reload_reaction_settings(self)->None:
         with open(self.settings_path, "r", encoding="utf-8") as file:
             settings = json.load(file)
-        self.Z2 = int(settings["reaction"]["Z2"])
+        reaction = settings["reaction"]
+        self.Z2 = int(reaction["Z2"])
+        is_nitrogen_15 = (int(reaction["Z1"]), int(reaction["A1"])) == (7, 15)
+        models = STRAGGLING_MODELS if is_nitrogen_15 else ("None", "Bohr")
+        self.straggling_model_combobox.configure(values=models)
+        if self.straggling_model_combobox.get() not in models:
+            self.straggling_model_combobox.set("Bohr")
 
     def open_manual(self):
         manual_path = find_resource("manual/HyProC_Manual.pdf")

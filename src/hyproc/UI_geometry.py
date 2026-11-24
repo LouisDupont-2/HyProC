@@ -101,23 +101,28 @@ def create_widgets(self):
         self.std_frame.pack(fill='x', expand=False, padx=10, pady=5)
         self.std_frame.grid_columnconfigure(1, weight=1)
 
+        std_label_padding = (10, 0)
+        std_field_padding = 10
+        std_row_padding = (5, 0)
+        std_button_padding = 5
+
         self.manual_k_label = ttk.Label(self.std_frame, text="K factor (opt.):")
-        self.manual_k_label.grid(row=0, column=0, padx=(10, 0), pady=(5,0), ipadx=10, sticky='w')
+        self.manual_k_label.grid(row=0, column=0, padx=std_label_padding, pady=std_row_padding, ipadx=10, sticky='w')
         self.manual_k_entry = ttk.Entry(self.std_frame, width=10)
-        self.manual_k_entry.grid(row=0, column=1, padx=10, pady=(5,0), sticky='we')
+        self.manual_k_entry.grid(row=0, column=1, padx=std_field_padding, pady=std_row_padding, sticky='we')
         self.manual_k_entry.bind("<KeyRelease>", self.on_manual_k_key_release)
         self.manual_k_entry.bind("<FocusOut>", self.on_manual_k_focus_out)
         self.manual_k_entry.bind("<Return>", self.on_manual_k_focus_out)
 
         self.std_yield_label = ttk.Label(self.std_frame, text="Yield (Count/µC):")
-        self.std_yield_label.grid(row=1, column=0, padx=(10, 0), pady=5, ipadx=10, sticky='w')
+        self.std_yield_label.grid(row=1, column=0, padx=std_label_padding, pady=std_row_padding, ipadx=10, sticky='w')
         self.std_Yield_entry = ttk.Entry(self.std_frame, width=10)
-        self.std_Yield_entry.grid(row=1, column=1, padx=10, pady=(5,0), sticky='we')
+        self.std_Yield_entry.grid(row=1, column=1, padx=std_field_padding, pady=std_row_padding, sticky='we')
 
         self.load_std_button = ttk.Button(self.std_frame, text='Load', command=self.load_std)
-        self.load_std_button.grid(row=2, column=0, padx=(10, 0), pady=5, sticky='we')
+        self.load_std_button.grid(row=2, column=0, padx=std_label_padding, pady=std_button_padding, sticky='we')
         self.save_std_button = ttk.Button(self.std_frame, text='Save', width=10, command=lambda: self.save_json(target_type='std'))
-        self.save_std_button.grid(row=2, column=1, padx=10, pady=5, sticky='we')
+        self.save_std_button.grid(row=2, column=1, padx=std_field_padding, pady=std_button_padding, sticky='we')
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Options checkbox
@@ -128,49 +133,54 @@ def create_widgets(self):
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=(0,5))
         self.options_frame1.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(self.options_frame1, text="Stopping model:").grid(row=0, column=0, padx=(0,5), pady=(5,0), sticky='w')
+        row_padding = (5, 0)
+        label_padding = (0, 5)
+        field_padding = 5
+
+        ttk.Label(self.options_frame1, text="Stopping model:").grid(row=0, column=0, padx=label_padding, pady=row_padding, sticky='w')
         self.stopping_model_combobox = ttk.Combobox(
             self.options_frame1,
             values=["SRIM", "SCS-25-Solid"],
             state="readonly",
             width=10,
         )
-        self.stopping_model_combobox.grid(row=0, column=1, padx=5, pady=(5,0), sticky='we')
+        self.stopping_model_combobox.grid(row=0, column=1, padx=field_padding, pady=row_padding, sticky='we')
         self.stopping_model_combobox.set("SCS-25-Solid")
 
-        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=1, column=0, padx=(0,5), pady=(5,0), sticky='w')
+        ttk.Label(self.options_frame1, text="Straggling model:").grid(row=1, column=0, padx=label_padding, pady=row_padding, sticky='w')
         self.straggling_model_combobox = ttk.Combobox(
             self.options_frame1,
-            values=["None", "Rud", "Rud corr", "Bohr"],
             state="readonly",
             width=10,
         )
-        self.straggling_model_combobox.grid(row=1, column=1, padx=5, pady=(5,0), sticky='we')
+        self.straggling_model_combobox.grid(row=1, column=1, padx=field_padding, pady=row_padding, sticky='we')
         self.straggling_model_combobox.set("Bohr")
         
-        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=2, column=0, padx=(0,5), pady=(5,0), sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=2, column=0, padx=label_padding, pady=row_padding, sticky='e')
         self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
-        self.beamSD_entry.grid(row=2, column=1, padx=5, pady=(0,0),sticky='e')
+        self.beamSD_entry.grid(row=2, column=1, padx=field_padding, pady=row_padding, sticky='e')
 
-        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=3, column=0, padx=(0,5), pady=5, sticky='e')
+        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=3, column=0, padx=label_padding, pady=row_padding, sticky='e')
         self.offset_entry = ttk.Entry(self.options_frame1, width=8)
-        self.offset_entry.grid(row=3, column=1, padx=5, pady=(0,0), sticky='e')
+        self.offset_entry.grid(row=3, column=1, padx=field_padding, pady=row_padding, sticky='e')
         self.offset_entry.insert(0, "0.0")
 
         self.options_frame2 = ttk.Frame(self.options_frame)
-        self.options_frame2.pack(fill='x', expand=False, padx=5, pady=0)
+        self.options_frame2.pack(fill='x', expand=False, padx=5, pady=(0, 5))
+
+        checkbox_padding = 5
 
         self.Doppler_bool = tk.BooleanVar(value=True)
         self.options_doppler_entry = ttk.Checkbutton(self.options_frame2,text="Quantum Doppler", variable=self.Doppler_bool)
-        self.options_doppler_entry.pack(padx=5, pady=(0,0),anchor='w')
+        self.options_doppler_entry.pack(padx=checkbox_padding, pady=0, anchor='w')
 
         self.broadSave_bool = tk.BooleanVar(value=False)
         self.broadSave_entry = ttk.Checkbutton(self.options_frame2,text="Save broadening data", variable=self.broadSave_bool)
-        self.broadSave_entry.pack(padx=5, pady=0 ,anchor='w')
+        self.broadSave_entry.pack(padx=checkbox_padding, pady=0, anchor='w')
 
         self.TrackTargetChange_bool = tk.BooleanVar(value=False)
         self.TrackTargetChange_entry = ttk.Checkbutton(self.options_frame2,text="Track target changes", variable=self.TrackTargetChange_bool)
-        self.TrackTargetChange_entry.pack(padx=5, pady=(0,5),anchor='w')    
+        self.TrackTargetChange_entry.pack(padx=checkbox_padding, pady=0, anchor='w')    
         
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Chi-squared graph
@@ -182,16 +192,17 @@ def create_widgets(self):
 
         self.chi_energy_range_frame = ttk.Frame(self.chi_frame)
         self.chi_energy_range_frame.pack(fill="x", padx=5, pady=(0, 6))
+        range_row_padding = (3, 0)
         ttk.Label(self.chi_energy_range_frame, text="Range (keV):").grid(row=0, column=0, columnspan=4, sticky="w")
-        ttk.Label(self.chi_energy_range_frame, text="E Min").grid(row=1, column=0, padx=(10, 3), pady=(3, 0))
+        ttk.Label(self.chi_energy_range_frame, text="E Min").grid(row=1, column=0, padx=(10, 3), pady=range_row_padding)
         self.chi_energy_min_entry = ttk.Entry(self.chi_energy_range_frame, width=7)
-        self.chi_energy_min_entry.grid(row=1, column=1, padx=(0, 10), pady=(3, 0))
+        self.chi_energy_min_entry.grid(row=1, column=1, padx=(0, 10), pady=range_row_padding)
         self.chi_energy_min_entry.bind("<KeyRelease>", self.on_chi_energy_bounds_change)
         self.chi_energy_min_entry.bind("<FocusOut>", self.on_chi_energy_bounds_change)
         self.chi_energy_min_entry.bind("<Return>", self.on_chi_energy_bounds_change)
-        ttk.Label(self.chi_energy_range_frame, text="E Max").grid(row=1, column=2, padx=(5, 3), pady=(3, 0))
+        ttk.Label(self.chi_energy_range_frame, text="E Max").grid(row=1, column=2, padx=(5, 3), pady=range_row_padding)
         self.chi_energy_max_entry = ttk.Entry(self.chi_energy_range_frame, width=7)
-        self.chi_energy_max_entry.grid(row=1, column=3, pady=(3, 0))
+        self.chi_energy_max_entry.grid(row=1, column=3, pady=range_row_padding)
         self.chi_energy_max_entry.bind("<KeyRelease>", self.on_chi_energy_bounds_change)
         self.chi_energy_max_entry.bind("<FocusOut>", self.on_chi_energy_bounds_change)
         self.chi_energy_max_entry.bind("<Return>", self.on_chi_energy_bounds_change)
@@ -234,7 +245,8 @@ def create_widgets(self):
         self.layer_frame.pack(fill='x', expand=False, padx=10, pady=0)
     
         self.layer_listbox = tk.Listbox(self.layer_frame, exportselection=False,height=8)
-        self.layer_listbox.pack(fill='both', expand=True, padx=5, pady=5)
+        list_padding = 5
+        self.layer_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
         self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
         
         # --- WITH SCROLLBAR (commented out) ---
@@ -256,11 +268,12 @@ def create_widgets(self):
         self.detail_frame = ttk.LabelFrame(self.target_left_frame, text="Layer Details")
         self.detail_frame.pack(fill='x',expand=False, padx=10, pady=5)
     
-        ttk.Label(self.detail_frame, text="Areal density (TFU):").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        detail_padding = 5
+        ttk.Label(self.detail_frame, text="Areal density (TFU):").grid(row=0, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
         self.AD_entry = ttk.Entry(self.detail_frame)
-        self.AD_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.AD_entry.grid(row=0, column=1, padx=detail_padding, pady=detail_padding)
         
-        ttk.Label(self.detail_frame, text="").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        ttk.Label(self.detail_frame, text="").grid(row=1, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
         self.AD_entry.bind('<FocusOut>', self.on_layer_entry_update)
         self.AD_entry.bind('<Return>', self.on_layer_entry_update)
         
@@ -270,19 +283,20 @@ def create_widgets(self):
         layer_button_size = 18
     
         self.add_layer_button = ttk.Button(self.left_button_frame, text="Add Layer", width=layer_button_size, command=self.on_add_layer_click)
-        self.add_layer_button.grid(row=0,column=0, padx=5)
+        button_padding = 5
+        self.add_layer_button.grid(row=0,column=0, padx=button_padding)
     
         self.remove_layer_button = ttk.Button(self.left_button_frame, text="Remove Layer", width=layer_button_size, command=self.on_remove_layer_click)
-        self.remove_layer_button.grid(row=1,column=0, padx=5)
+        self.remove_layer_button.grid(row=1,column=0, padx=button_padding)
     
         self.up_button = ttk.Button(self.left_button_frame, text="Move Up", width=layer_button_size,command=self.on_move_layer_up_click)
-        self.up_button.grid(row=0,column=1, padx=5)
+        self.up_button.grid(row=0,column=1, padx=button_padding)
     
         self.down_button = ttk.Button(self.left_button_frame, text="Move Down", width=layer_button_size, command=self.on_move_layer_down_click)
-        self.down_button.grid(row=1,column=1, padx=5)
+        self.down_button.grid(row=1,column=1, padx=button_padding)
 
         self.duplicate_button = ttk.Button(self.left_button_frame, text="Duplicate Layer", width=(layer_button_size)*2+3, command=self.on_duplicate_layer_click)
-        self.duplicate_button.grid(row=2,column=0, padx=5, pady=(5,0), columnspan=2)
+        self.duplicate_button.grid(row=2,column=0, padx=button_padding, pady=(5,0), columnspan=2)
         
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Right Frame (elements)
@@ -295,7 +309,7 @@ def create_widgets(self):
         self.elem_frame.pack(fill='x', expand=False, padx=10, pady=0)
     
         self.elem_listbox = tk.Listbox(self.elem_frame,exportselection=False, height=8)
-        self.elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
+        self.elem_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
         self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
         
         # --- WITH SCROLLBAR (commented out) ---
@@ -317,15 +331,16 @@ def create_widgets(self):
         self.composition_frame = ttk.LabelFrame(self.target_right_frame, text="Elements Details")
         self.composition_frame.pack(fill='x',expand=False, padx=10, pady=5)
     
-        ttk.Label(self.composition_frame, text="Z:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        composition_padding = 5
+        ttk.Label(self.composition_frame, text="Z:").grid(row=0, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
         self.element_Z_entry = ttk.Entry(self.composition_frame)
-        self.element_Z_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.element_Z_entry.grid(row=0, column=1, padx=composition_padding, pady=composition_padding)
         self.element_Z_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'Z'))
         self.element_Z_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'Z'))      
 
-        ttk.Label(self.composition_frame, text="% at:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        ttk.Label(self.composition_frame, text="% at:").grid(row=1, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
         self.composition_percent_entry = ttk.Entry(self.composition_frame)
-        self.composition_percent_entry.grid(row=1, column=1, padx=5, pady=0)
+        self.composition_percent_entry.grid(row=1, column=1, padx=composition_padding, pady=composition_padding)
         self.composition_percent_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'percent_at'))
         self.composition_percent_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'percent_at'))
 
@@ -334,13 +349,13 @@ def create_widgets(self):
         self.right_button_frame.pack(anchor='center', padx=10, pady=5)
 
         self.add_element_button = ttk.Button(self.right_button_frame, text="Add Element", width=30, command=self.on_add_element_click)
-        self.add_element_button.grid(row=0, padx=5)
+        self.add_element_button.grid(row=0, padx=button_padding)
 
         self.remove_element_button = ttk.Button(self.right_button_frame, text="Remove Element", width=30, command=self.on_remove_element_click)
-        self.remove_element_button.grid(row=1, padx=5)
+        self.remove_element_button.grid(row=1, padx=button_padding)
 
         self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.on_lock_and_normalize_click)
-        self.norm_element_button.grid(row=2, padx=5, pady=(5,0))
+        self.norm_element_button.grid(row=2, padx=button_padding, pady=(5,0))
 
         # *=*=*=*=*=*=*=*=*=*=*=*=*=*=* Standard *=*=*=*=*=*=*=*=*=*=*=*=*=*=*
         # Layer Composition
@@ -349,7 +364,7 @@ def create_widgets(self):
         self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=(10,5))
     
         self.Std_elem_listbox = tk.Listbox(self.Std_elem_frame,exportselection=False, height=8)
-        self.Std_elem_listbox.pack(fill='both', expand=True, padx=5, pady=5)
+        self.Std_elem_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
         self.Std_elem_listbox.bind('<<ListboxSelect>>', self.on_std_element_select)
         
         # --- WITH SCROLLBAR (commented out) ---
@@ -371,15 +386,15 @@ def create_widgets(self):
         self.Std_composition_frame = ttk.LabelFrame(self.Std_frame, text="Elements Details")
         self.Std_composition_frame.pack(fill='x', padx=20, pady=5)
     
-        ttk.Label(self.Std_composition_frame, text="Z:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        ttk.Label(self.Std_composition_frame, text="Z:").grid(row=0, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
         self.Std_element_Z_entry = ttk.Entry(self.Std_composition_frame)
-        self.Std_element_Z_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.Std_element_Z_entry.grid(row=0, column=1, padx=composition_padding, pady=composition_padding)
         self.Std_element_Z_entry.bind("<FocusOut>", lambda event: self.on_std_element_entry_update(event, 'Z'))
         self.Std_element_Z_entry.bind("<Return>", lambda event: self.on_std_element_entry_update(event, 'Z'))      
 
-        ttk.Label(self.Std_composition_frame, text="% at:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        ttk.Label(self.Std_composition_frame, text="% at:").grid(row=1, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
         self.Std_composition_percent_entry = ttk.Entry(self.Std_composition_frame)
-        self.Std_composition_percent_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.Std_composition_percent_entry.grid(row=1, column=1, padx=composition_padding, pady=composition_padding)
         self.Std_composition_percent_entry.bind("<FocusOut>", lambda event: self.on_std_element_entry_update(event, 'percent_at'))
         self.Std_composition_percent_entry.bind("<Return>", lambda event: self.on_std_element_entry_update(event, 'percent_at'))
 
@@ -388,13 +403,13 @@ def create_widgets(self):
         self.Std_right_button_frame.pack(anchor='center', padx=10, pady=5)
 
         self.Std_add_element_button = ttk.Button(self.Std_right_button_frame, text="Add Element", width=30, command=lambda: self.on_add_element_click(target_type='std'))
-        self.Std_add_element_button.grid(row=0, padx=5)
+        self.Std_add_element_button.grid(row=0, padx=button_padding)
 
         self.Std_remove_element_button = ttk.Button(self.Std_right_button_frame, text="Remove Element", width=30, command=lambda: self.on_remove_element_click(target_type='std'))
-        self.Std_remove_element_button.grid(row=1, padx=5)
+        self.Std_remove_element_button.grid(row=1, padx=button_padding)
 
         self.Std_norm_element_button = ttk.Button(self.Std_right_button_frame, text="Isolate & Normalize", width=30, command=lambda: self.on_lock_and_normalize_click(target_type='std'))
-        self.Std_norm_element_button.grid(row=2, padx=5, pady=(5,0))
+        self.Std_norm_element_button.grid(row=2, padx=button_padding, pady=(5,0))
 
         #################################
         # Canvas for excitation curves

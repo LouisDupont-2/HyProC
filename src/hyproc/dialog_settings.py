@@ -97,7 +97,7 @@ class SettingsDialog(tk.Toplevel):
 
             # Update parent's Z2 if possible
             try:
-                self.parent.Z2 = self.parent.load_Z2(self.settings_path)
+                self.parent.reload_reaction_settings()
             except Exception:
                 pass
 
