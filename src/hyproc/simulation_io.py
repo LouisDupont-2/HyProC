@@ -11,6 +11,18 @@ import periodictable
 from .class_models import Layer, Target
 
 
+def validate_temperature(value: object, label: str) -> float:
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        temperature = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{label} temperature must be a finite number at or above -273.15 °C.") from exc
+    if not np.isfinite(temperature) or temperature < -273.15:
+        raise ValueError(f"{label} temperature must be a finite number at or above -273.15 °C.")
+    return temperature
+
+
 def load_simulation(path: str | Path) -> dict:
     with Path(path).open(encoding="utf-8") as source:
         data = json.load(source)

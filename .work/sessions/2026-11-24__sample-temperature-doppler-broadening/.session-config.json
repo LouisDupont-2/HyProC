@@ -1,0 +1,120 @@
+{
+  "session_id": "2026-11-24__sample-temperature-doppler-broadening",
+  "feature_name": "sample temperature Doppler broadening",
+  "scratch_dir": ".scratch/tests/2026-11-24__sample-temperature-doppler-broadening",
+  "created_at": "2026-11-24T15:57:29.946Z",
+  "template_version": 2,
+  "history": [
+    {
+      "at": "2026-11-24T15:57:29.946Z",
+      "event": "session_started",
+      "phase": "grill",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:03:49.533Z",
+      "event": "grill_written",
+      "phase": "plan-not-started",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:03:53.048Z",
+      "event": "plan_started",
+      "phase": "plan",
+      "files": [
+        "02-plan/plan.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:09:01.947Z",
+      "event": "branch_created",
+      "phase": "plan",
+      "detail": {
+        "branch": "feat/thermal-doppler-broadening",
+        "base": "main"
+      }
+    },
+    {
+      "at": "2026-11-24T16:09:01.984Z",
+      "event": "plan_written",
+      "phase": "ship",
+      "files": [
+        "02-plan/plan.md",
+        "02-plan/tickets/01-thermal-doppler.md"
+      ],
+      "detail": {
+        "tickets": 1
+      }
+    },
+    {
+      "at": "2026-11-24T16:09:09.325Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/01-thermal-doppler.md",
+        "03-implement/01-thermal-doppler/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "01-thermal-doppler"
+      }
+    },
+    {
+      "at": "2026-11-24T16:13:19.319Z",
+      "event": "ticket_done",
+      "phase": "finish-pending",
+      "files": [
+        "03-implement/01-thermal-doppler/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "01-thermal-doppler",
+        "commit": "20e7fec"
+      }
+    },
+    {
+      "at": "2026-11-24T16:14:20.241Z",
+      "event": "changelog_written",
+      "phase": "finish-pending",
+      "detail": {
+        "bump": "minor"
+      }
+    },
+    {
+      "at": "2026-11-24T16:20:06.555Z",
+      "event": "pr_opened",
+      "phase": "finish-pending",
+      "detail": {
+        "url": "https://github.com/LouisDupont-2/HyProC/pull/5"
+      }
+    },
+    {
+      "at": "2026-11-24T16:19:59.440Z",
+      "event": "session_finished",
+      "phase": "finished",
+      "files": [
+        "INDEX.md"
+      ]
+    }
+  ],
+  "current_phase": "finished",
+  "git": {
+    "branch": "feat/thermal-doppler-broadening",
+    "base_branch": "main",
+    "branch_created_at": "2026-11-24T16:09:01.947Z",
+    "pr_url": "https://github.com/LouisDupont-2/HyProC/pull/5"
+  },
+  "ship_mode": "inline",
+  "changelog": {
+    "bump": "minor",
+    "floor": "minor",
+    "reason": null,
+    "bullets": 1,
+    "path": ".work/changelog/2026-11-24__sample-temperature-doppler-broadening.md",
+    "written_at": "2026-11-24T16:14:20.229Z"
+  },
+  "manualDelivery": "Rebuilt manual/HyProC_Manual.pdf. Temperature controls and thermal broadening affect simulation results.",
+  "finished_at": "2026-11-24T16:19:59.440Z"
+}

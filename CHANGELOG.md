@@ -2,6 +2,10 @@
 
 ## 24 November 2026 - Unreleased
 
+### Added
+
+- Set separate target and standard temperatures to include thermal Doppler broadening in simulated excitation curves.
+
 ### Changed
 
 - The Standard tab now shows the same editor layout as the Target tab, with its fixed layer controls disabled.

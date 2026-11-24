@@ -8,7 +8,7 @@ import numpy as np
 import periodictable
 
 from . import calc_broadening, calc_curve, calc_stopping
-from .simulation_io import make_target, validate_physics
+from .simulation_io import make_target, validate_physics, validate_temperature
 
 
 @dataclass
@@ -80,6 +80,11 @@ def _simulate(
 
     z2 = int(reaction["Z2"])
     projectile = projectile_arguments(reaction, srim_path)
+    target_temperature = validate_temperature(options.get("target_temperature", "20"), "Target")
+    target_mass = periodictable.elements[int(reaction["Z2"])][int(reaction["A2"])].mass
+    thermal_width = lambda temperature: calc_broadening.thermal_doppler_sd(
+        resonance["E_R"], temperature, projectile["M1"], target_mass
+    )
     stopping_model = options.get("stopping_model", "SRIM")
     straggling_model = options["straggling_model"]
     if straggling_model not in {"None", "Rud", "Rud corr", "Bohr"}:
@@ -99,6 +104,7 @@ def _simulate(
         if not np.isfinite(normalization) or normalization <= 0:
             raise ValueError("Manual K factor must be finite and greater than zero.")
     else:
+        standard_temperature = validate_temperature(options.get("standard_temperature", "20"), "Standard")
         standard = make_target(simulation["standard"])
         layer = standard["layers"][0]
         if not layer.find_element(z2):
@@ -111,7 +117,7 @@ def _simulate(
         layer["stopping"] = standard_stopping
         _, x, y, _, _ = calc_broadening.broadening(
             standard_energy, standard, beam_width, options["doppler"], straggling_model,
-            **broadening_arguments,
+            thermal_sd=thermal_width(standard_temperature), **broadening_arguments,
         )
         standard_integral = calc_curve.compute_yield(standard, x, y, z2, resonance["Off-resonance"])
         if not np.isfinite(standard_integral) or standard_integral == 0:
@@ -129,7 +135,7 @@ def _simulate(
         _, x, y, _, _ = calc_broadening.broadening(
             energy, target, beam_width, options["doppler"], straggling_model,
             saveData=path is not None, savepath=str(path) if path is not None else None,
-            **broadening_arguments,
+            thermal_sd=thermal_width(target_temperature), **broadening_arguments,
         )
         yields.append(float(normalization * calc_curve.compute_yield(target, x, y, z2, resonance["Off-resonance"])))
     return SimulationResult([energy + offset for energy in incident_energies], yields, normalization, standard_stopping)

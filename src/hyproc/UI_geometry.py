@@ -232,10 +232,15 @@ def create_widgets(self):
         self.std_Yield_entry = ttk.Entry(self.std_frame, width=10)
         self.std_Yield_entry.grid(row=1, column=1, padx=std_field_padding, pady=std_row_padding, sticky='we')
 
+        ttk.Label(self.std_frame, text="Temperature (°C):").grid(row=2, column=0, padx=std_label_padding, pady=std_row_padding, ipadx=10, sticky='w')
+        self.standard_temperature_entry = ttk.Entry(self.std_frame, width=10)
+        self.standard_temperature_entry.grid(row=2, column=1, padx=std_field_padding, pady=std_row_padding, sticky='we')
+        self.standard_temperature_entry.insert(0, "20")
+
         self.load_std_button = ttk.Button(self.std_frame, text='Load', command=self.load_std)
-        self.load_std_button.grid(row=2, column=0, padx=std_label_padding, pady=std_button_padding, sticky='we')
+        self.load_std_button.grid(row=3, column=0, padx=std_label_padding, pady=std_button_padding, sticky='we')
         self.save_std_button = ttk.Button(self.std_frame, text='Save', width=10, command=lambda: self.save_json(target_type='std'))
-        self.save_std_button.grid(row=2, column=1, padx=std_field_padding, pady=std_button_padding, sticky='we')
+        self.save_std_button.grid(row=3, column=1, padx=std_field_padding, pady=std_button_padding, sticky='we')
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Options checkbox
@@ -269,13 +274,18 @@ def create_widgets(self):
         self.straggling_model_combobox.grid(row=1, column=1, padx=field_padding, pady=row_padding, sticky='we')
         self.straggling_model_combobox.set("Bohr")
         
-        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=2, column=0, padx=label_padding, pady=row_padding, sticky='e')
-        self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
-        self.beamSD_entry.grid(row=2, column=1, padx=field_padding, pady=row_padding, sticky='e')
+        ttk.Label(self.options_frame1, text="Target temperature (°C):").grid(row=2, column=0, padx=label_padding, pady=row_padding, sticky='e')
+        self.target_temperature_entry = ttk.Entry(self.options_frame1, width=8)
+        self.target_temperature_entry.grid(row=2, column=1, padx=field_padding, pady=row_padding, sticky='e')
+        self.target_temperature_entry.insert(0, "20")
 
-        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=3, column=0, padx=label_padding, pady=row_padding, sticky='e')
+        ttk.Label(self.options_frame1, text="Beam width SD (keV):").grid(row=3, column=0, padx=label_padding, pady=row_padding, sticky='e')
+        self.beamSD_entry = ttk.Entry(self.options_frame1, width=8)
+        self.beamSD_entry.grid(row=3, column=1, padx=field_padding, pady=row_padding, sticky='e')
+
+        ttk.Label(self.options_frame1, text="Offset (keV):").grid(row=4, column=0, padx=label_padding, pady=row_padding, sticky='e')
         self.offset_entry = ttk.Entry(self.options_frame1, width=8)
-        self.offset_entry.grid(row=3, column=1, padx=field_padding, pady=row_padding, sticky='e')
+        self.offset_entry.grid(row=4, column=1, padx=field_padding, pady=row_padding, sticky='e')
         self.offset_entry.insert(0, "0.0")
 
         self.options_frame2 = ttk.Frame(self.options_frame)
