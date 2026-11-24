@@ -1,0 +1,61 @@
+{
+  "session_id": "2026-11-24__sample-temperature-doppler-broadening",
+  "feature_name": "sample temperature Doppler broadening",
+  "scratch_dir": ".scratch/tests/2026-11-24__sample-temperature-doppler-broadening",
+  "created_at": "2026-11-24T15:57:29.946Z",
+  "template_version": 2,
+  "history": [
+    {
+      "at": "2026-11-24T15:57:29.946Z",
+      "event": "session_started",
+      "phase": "grill",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:03:49.533Z",
+      "event": "grill_written",
+      "phase": "plan-not-started",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:03:53.048Z",
+      "event": "plan_started",
+      "phase": "plan",
+      "files": [
+        "02-plan/plan.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T16:09:01.947Z",
+      "event": "branch_created",
+      "phase": "plan",
+      "detail": {
+        "branch": "feat/thermal-doppler-broadening",
+        "base": "main"
+      }
+    },
+    {
+      "at": "2026-11-24T16:09:01.984Z",
+      "event": "plan_written",
+      "phase": "ship",
+      "files": [
+        "02-plan/plan.md",
+        "02-plan/tickets/01-thermal-doppler.md"
+      ],
+      "detail": {
+        "tickets": 1
+      }
+    }
+  ],
+  "current_phase": "ship",
+  "git": {
+    "branch": "feat/thermal-doppler-broadening",
+    "base_branch": "main",
+    "branch_created_at": "2026-11-24T16:09:01.947Z",
+    "pr_url": null
+  }
+}
