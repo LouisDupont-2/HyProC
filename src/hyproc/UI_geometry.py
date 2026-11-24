@@ -3,6 +3,119 @@ from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,NavigationToolbar2Tk)
 
+class TargetEditorTab:
+    """Construct the common target and standard editor layout."""
+
+    def __init__(self, parent, app, *, standard=False):
+        self.target_frame = parent
+        self.on_layer_select = app.on_layer_select
+        self.on_layer_entry_update = app.on_layer_entry_update
+        self.on_add_layer_click = app.on_add_layer_click
+        self.on_remove_layer_click = app.on_remove_layer_click
+        self.on_move_layer_up_click = app.on_move_layer_up_click
+        self.on_move_layer_down_click = app.on_move_layer_down_click
+        self.on_duplicate_layer_click = app.on_duplicate_layer_click
+        self.on_element_select = app.on_std_element_select if standard else app.on_element_select
+        self.on_element_entry_update = app.on_std_element_entry_update if standard else app.on_element_entry_update
+        if standard:
+            self.on_add_element_click = lambda: app.on_add_element_click(target_type='std')
+            self.on_remove_element_click = lambda: app.on_remove_element_click(target_type='std')
+            self.on_lock_and_normalize_click = lambda: app.on_lock_and_normalize_click(target_type='std')
+        else:
+            self.on_add_element_click = app.on_add_element_click
+            self.on_remove_element_click = app.on_remove_element_click
+            self.on_lock_and_normalize_click = app.on_lock_and_normalize_click
+        self.target_left_frame = ttk.Frame(self.target_frame)
+        self.target_left_frame.pack(side='left', fill='both', expand=True, padx=(10,0), pady=10)
+    
+        self.layer_frame = ttk.LabelFrame(self.target_left_frame, text="Layers", height=150)
+        self.layer_frame.pack(fill='x', expand=False, padx=10, pady=0)
+    
+        self.layer_listbox = tk.Listbox(self.layer_frame, exportselection=False,height=8)
+        list_padding = 5
+        self.layer_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
+        self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
+        
+    
+        self.detail_frame = ttk.LabelFrame(self.target_left_frame, text="Layer Details")
+        self.detail_frame.pack(fill='x',expand=False, padx=10, pady=5)
+    
+        detail_padding = 5
+        ttk.Label(self.detail_frame, text="Areal density (TFU):").grid(row=0, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
+        self.AD_entry = ttk.Entry(self.detail_frame)
+        self.AD_entry.grid(row=0, column=1, padx=detail_padding, pady=detail_padding)
+        
+        ttk.Label(self.detail_frame, text="").grid(row=1, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
+        self.AD_entry.bind('<FocusOut>', self.on_layer_entry_update)
+        self.AD_entry.bind('<Return>', self.on_layer_entry_update)
+        
+        self.left_button_frame = ttk.Frame(self.target_left_frame)
+        self.left_button_frame.pack(padx=10, pady=5, anchor='center')
+        layer_button_size = 18
+    
+        self.add_layer_button = ttk.Button(self.left_button_frame, text="Add Layer", width=layer_button_size, command=self.on_add_layer_click)
+        button_padding = 5
+        self.add_layer_button.grid(row=0,column=0, padx=button_padding)
+    
+        self.remove_layer_button = ttk.Button(self.left_button_frame, text="Remove Layer", width=layer_button_size, command=self.on_remove_layer_click)
+        self.remove_layer_button.grid(row=1,column=0, padx=button_padding)
+    
+        self.up_button = ttk.Button(self.left_button_frame, text="Move Up", width=layer_button_size,command=self.on_move_layer_up_click)
+        self.up_button.grid(row=0,column=1, padx=button_padding)
+    
+        self.down_button = ttk.Button(self.left_button_frame, text="Move Down", width=layer_button_size, command=self.on_move_layer_down_click)
+        self.down_button.grid(row=1,column=1, padx=button_padding)
+
+        self.duplicate_button = ttk.Button(self.left_button_frame, text="Duplicate Layer", width=(layer_button_size)*2+3, command=self.on_duplicate_layer_click)
+        self.duplicate_button.grid(row=2,column=0, padx=button_padding, pady=(5,0), columnspan=2)
+        
+        self.target_right_frame = ttk.Frame(self.target_frame)
+        self.target_right_frame.pack(side='right', fill='both', expand=True, padx=(0,10), pady=10)
+    
+        self.elem_frame = ttk.LabelFrame(self.target_right_frame, text="Elements",height=150)
+        self.elem_frame.pack(fill='x', expand=False, padx=10, pady=0)
+    
+        self.elem_listbox = tk.Listbox(self.elem_frame,exportselection=False, height=8)
+        self.elem_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
+        self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
+        
+    
+        self.composition_frame = ttk.LabelFrame(self.target_right_frame, text="Elements Details")
+        self.composition_frame.pack(fill='x',expand=False, padx=10, pady=5)
+    
+        composition_padding = 5
+        ttk.Label(self.composition_frame, text="Z:").grid(row=0, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
+        self.element_Z_entry = ttk.Entry(self.composition_frame)
+        self.element_Z_entry.grid(row=0, column=1, padx=composition_padding, pady=composition_padding)
+        self.element_Z_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'Z'))
+        self.element_Z_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'Z'))      
+
+        ttk.Label(self.composition_frame, text="% at:").grid(row=1, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
+        self.composition_percent_entry = ttk.Entry(self.composition_frame)
+        self.composition_percent_entry.grid(row=1, column=1, padx=composition_padding, pady=composition_padding)
+        self.composition_percent_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'percent_at'))
+        self.composition_percent_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'percent_at'))
+
+        self.right_button_frame = ttk.Frame(self.target_right_frame)
+        self.right_button_frame.pack(anchor='center', padx=10, pady=5)
+
+        self.add_element_button = ttk.Button(self.right_button_frame, text="Add Element", width=30, command=self.on_add_element_click)
+        self.add_element_button.grid(row=0, padx=button_padding)
+
+        self.remove_element_button = ttk.Button(self.right_button_frame, text="Remove Element", width=30, command=self.on_remove_element_click)
+        self.remove_element_button.grid(row=1, padx=button_padding)
+
+        self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.on_lock_and_normalize_click)
+        self.norm_element_button.grid(row=2, padx=button_padding, pady=(5,0))
+
+        if standard:
+            self.layer_listbox.config(state='disabled')
+            self.AD_entry.state(['disabled'])
+            for button in (self.add_layer_button, self.remove_layer_button, self.up_button,
+                           self.down_button, self.duplicate_button):
+                button.state(['disabled'])
+
+
 def create_widgets(self):
         # Menu bar
         menubar = tk.Menu(self)
@@ -236,180 +349,14 @@ def create_widgets(self):
         self.TargetStd_notebook.add(self.Std_frame, text='Standard')
 
         # *=*=*=*=*=*=*=*=*=*=*=*=*=*=* TARGET *=*=*=*=*=*=*=*=*=*=*=*=*=*=*
-        # Left Frame (layers)
-        self.target_left_frame = ttk.Frame(self.target_frame)
-        self.target_left_frame.pack(side='left', fill='both', expand=True, padx=(10,0), pady=10)
-    
-        # Layer Frame
-        self.layer_frame = ttk.LabelFrame(self.target_left_frame, text="Layers", height=150)
-        self.layer_frame.pack(fill='x', expand=False, padx=10, pady=0)
-    
-        self.layer_listbox = tk.Listbox(self.layer_frame, exportselection=False,height=8)
-        list_padding = 5
-        self.layer_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
-        self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
-        
-        # --- WITH SCROLLBAR (commented out) ---
-        # # Frame to hold listbox and scrollbar
-        # self.layer_listbox_frame = ttk.Frame(self.layer_frame)
-        # self.layer_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
-        # 
-        # self.layer_listbox = tk.Listbox(self.layer_listbox_frame, exportselection=False, height=8)
-        # self.layer_listbox.pack(side='left', fill='both', expand=True)
-        # 
-        # # Scrollbar for layer listbox
-        # self.layer_scrollbar = ttk.Scrollbar(self.layer_listbox_frame, orient='vertical', command=self.layer_listbox.yview)
-        # self.layer_scrollbar.pack(side='right', fill='y')
-        # self.layer_listbox.config(yscrollcommand=self.layer_scrollbar.set)
-        # 
-        # self.layer_listbox.bind('<<ListboxSelect>>', self.on_layer_select)
-    
-        # Layer Details
-        self.detail_frame = ttk.LabelFrame(self.target_left_frame, text="Layer Details")
-        self.detail_frame.pack(fill='x',expand=False, padx=10, pady=5)
-    
-        detail_padding = 5
-        ttk.Label(self.detail_frame, text="Areal density (TFU):").grid(row=0, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
-        self.AD_entry = ttk.Entry(self.detail_frame)
-        self.AD_entry.grid(row=0, column=1, padx=detail_padding, pady=detail_padding)
-        
-        ttk.Label(self.detail_frame, text="").grid(row=1, column=0, padx=detail_padding, pady=detail_padding, sticky='e')
-        self.AD_entry.bind('<FocusOut>', self.on_layer_entry_update)
-        self.AD_entry.bind('<Return>', self.on_layer_entry_update)
-        
-        # Buttons
-        self.left_button_frame = ttk.Frame(self.target_left_frame)
-        self.left_button_frame.pack(padx=10, pady=5, anchor='center')
-        layer_button_size = 18
-    
-        self.add_layer_button = ttk.Button(self.left_button_frame, text="Add Layer", width=layer_button_size, command=self.on_add_layer_click)
-        button_padding = 5
-        self.add_layer_button.grid(row=0,column=0, padx=button_padding)
-    
-        self.remove_layer_button = ttk.Button(self.left_button_frame, text="Remove Layer", width=layer_button_size, command=self.on_remove_layer_click)
-        self.remove_layer_button.grid(row=1,column=0, padx=button_padding)
-    
-        self.up_button = ttk.Button(self.left_button_frame, text="Move Up", width=layer_button_size,command=self.on_move_layer_up_click)
-        self.up_button.grid(row=0,column=1, padx=button_padding)
-    
-        self.down_button = ttk.Button(self.left_button_frame, text="Move Down", width=layer_button_size, command=self.on_move_layer_down_click)
-        self.down_button.grid(row=1,column=1, padx=button_padding)
-
-        self.duplicate_button = ttk.Button(self.left_button_frame, text="Duplicate Layer", width=(layer_button_size)*2+3, command=self.on_duplicate_layer_click)
-        self.duplicate_button.grid(row=2,column=0, padx=button_padding, pady=(5,0), columnspan=2)
-        
-        #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-        # Right Frame (elements)
-        self.target_right_frame = ttk.Frame(self.target_frame)
-        self.target_right_frame.pack(side='right', fill='both', expand=True, padx=(0,10), pady=10)
-    
-        # Layer Composition
-        self.elem_frame = ttk.LabelFrame(self.target_right_frame, text="Elements",height=150)
-        #self.elem_frame.pack_propagate(False)
-        self.elem_frame.pack(fill='x', expand=False, padx=10, pady=0)
-    
-        self.elem_listbox = tk.Listbox(self.elem_frame,exportselection=False, height=8)
-        self.elem_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
-        self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
-        
-        # --- WITH SCROLLBAR (commented out) ---
-        # # Frame to hold listbox and scrollbar
-        # self.elem_listbox_frame = ttk.Frame(self.elem_frame)
-        # self.elem_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
-        # 
-        # self.elem_listbox = tk.Listbox(self.elem_listbox_frame, exportselection=False, height=8)
-        # self.elem_listbox.pack(side='left', fill='both', expand=True)
-        # 
-        # # Scrollbar for element listbox
-        # self.elem_scrollbar = ttk.Scrollbar(self.elem_listbox_frame, orient='vertical', command=self.elem_listbox.yview)
-        # self.elem_scrollbar.pack(side='right', fill='y')
-        # self.elem_listbox.config(yscrollcommand=self.elem_scrollbar.set)
-        # 
-        # self.elem_listbox.bind('<<ListboxSelect>>', self.on_element_select)
-    
-        # Element Details
-        self.composition_frame = ttk.LabelFrame(self.target_right_frame, text="Elements Details")
-        self.composition_frame.pack(fill='x',expand=False, padx=10, pady=5)
-    
-        composition_padding = 5
-        ttk.Label(self.composition_frame, text="Z:").grid(row=0, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
-        self.element_Z_entry = ttk.Entry(self.composition_frame)
-        self.element_Z_entry.grid(row=0, column=1, padx=composition_padding, pady=composition_padding)
-        self.element_Z_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'Z'))
-        self.element_Z_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'Z'))      
-
-        ttk.Label(self.composition_frame, text="% at:").grid(row=1, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
-        self.composition_percent_entry = ttk.Entry(self.composition_frame)
-        self.composition_percent_entry.grid(row=1, column=1, padx=composition_padding, pady=composition_padding)
-        self.composition_percent_entry.bind("<FocusOut>", lambda event: self.on_element_entry_update(event, 'percent_at'))
-        self.composition_percent_entry.bind("<Return>", lambda event: self.on_element_entry_update(event, 'percent_at'))
-
-        # Element Buttons
-        self.right_button_frame = ttk.Frame(self.target_right_frame)
-        self.right_button_frame.pack(anchor='center', padx=10, pady=5)
-
-        self.add_element_button = ttk.Button(self.right_button_frame, text="Add Element", width=30, command=self.on_add_element_click)
-        self.add_element_button.grid(row=0, padx=button_padding)
-
-        self.remove_element_button = ttk.Button(self.right_button_frame, text="Remove Element", width=30, command=self.on_remove_element_click)
-        self.remove_element_button.grid(row=1, padx=button_padding)
-
-        self.norm_element_button = ttk.Button(self.right_button_frame, text="Isolate & Normalize", width=30, command=self.on_lock_and_normalize_click)
-        self.norm_element_button.grid(row=2, padx=button_padding, pady=(5,0))
-
-        # *=*=*=*=*=*=*=*=*=*=*=*=*=*=* Standard *=*=*=*=*=*=*=*=*=*=*=*=*=*=*
-        # Layer Composition
-        self.Std_elem_frame = ttk.LabelFrame(self.Std_frame, text="Elements",height=150)
-        #self.elem_frame.pack_propagate(False)
-        self.Std_elem_frame.pack(fill='x', expand=False, padx=20, pady=(10,5))
-    
-        self.Std_elem_listbox = tk.Listbox(self.Std_elem_frame,exportselection=False, height=8)
-        self.Std_elem_listbox.pack(fill='both', expand=True, padx=list_padding, pady=list_padding)
-        self.Std_elem_listbox.bind('<<ListboxSelect>>', self.on_std_element_select)
-        
-        # --- WITH SCROLLBAR (commented out) ---
-        # # Frame to hold listbox and scrollbar
-        # self.Std_elem_listbox_frame = ttk.Frame(self.Std_elem_frame)
-        # self.Std_elem_listbox_frame.pack(fill='both', expand=True, padx=5, pady=5)
-        # 
-        # self.Std_elem_listbox = tk.Listbox(self.Std_elem_listbox_frame, exportselection=False, height=8)
-        # self.Std_elem_listbox.pack(side='left', fill='both', expand=True)
-        # 
-        # # Scrollbar for standard element listbox
-        # self.Std_elem_scrollbar = ttk.Scrollbar(self.Std_elem_listbox_frame, orient='vertical', command=self.Std_elem_listbox.yview)
-        # self.Std_elem_scrollbar.pack(side='right', fill='y')
-        # self.Std_elem_listbox.config(yscrollcommand=self.Std_elem_scrollbar.set)
-        # 
-        # self.Std_elem_listbox.bind('<<ListboxSelect>>', self.on_std_element_select)
-    
-        # Element Details
-        self.Std_composition_frame = ttk.LabelFrame(self.Std_frame, text="Elements Details")
-        self.Std_composition_frame.pack(fill='x', padx=20, pady=5)
-    
-        ttk.Label(self.Std_composition_frame, text="Z:").grid(row=0, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
-        self.Std_element_Z_entry = ttk.Entry(self.Std_composition_frame)
-        self.Std_element_Z_entry.grid(row=0, column=1, padx=composition_padding, pady=composition_padding)
-        self.Std_element_Z_entry.bind("<FocusOut>", lambda event: self.on_std_element_entry_update(event, 'Z'))
-        self.Std_element_Z_entry.bind("<Return>", lambda event: self.on_std_element_entry_update(event, 'Z'))      
-
-        ttk.Label(self.Std_composition_frame, text="% at:").grid(row=1, column=0, padx=composition_padding, pady=composition_padding, sticky='e')
-        self.Std_composition_percent_entry = ttk.Entry(self.Std_composition_frame)
-        self.Std_composition_percent_entry.grid(row=1, column=1, padx=composition_padding, pady=composition_padding)
-        self.Std_composition_percent_entry.bind("<FocusOut>", lambda event: self.on_std_element_entry_update(event, 'percent_at'))
-        self.Std_composition_percent_entry.bind("<Return>", lambda event: self.on_std_element_entry_update(event, 'percent_at'))
-
-        # Element Buttons
-        self.Std_right_button_frame = ttk.Frame(self.Std_frame)
-        self.Std_right_button_frame.pack(anchor='center', padx=10, pady=5)
-
-        self.Std_add_element_button = ttk.Button(self.Std_right_button_frame, text="Add Element", width=30, command=lambda: self.on_add_element_click(target_type='std'))
-        self.Std_add_element_button.grid(row=0, padx=button_padding)
-
-        self.Std_remove_element_button = ttk.Button(self.Std_right_button_frame, text="Remove Element", width=30, command=lambda: self.on_remove_element_click(target_type='std'))
-        self.Std_remove_element_button.grid(row=1, padx=button_padding)
-
-        self.Std_norm_element_button = ttk.Button(self.Std_right_button_frame, text="Isolate & Normalize", width=30, command=lambda: self.on_lock_and_normalize_click(target_type='std'))
-        self.Std_norm_element_button.grid(row=2, padx=button_padding, pady=(5,0))
+        target_tab = TargetEditorTab(self.target_frame, self)
+        standard_tab = TargetEditorTab(self.Std_frame, self, standard=True)
+        for name, widget in vars(target_tab).items():
+            if not name.startswith('on_') and name != 'target_frame':
+                setattr(self, name, widget)
+        for name, widget in vars(standard_tab).items():
+            if not name.startswith('on_') and name != 'target_frame':
+                setattr(self, 'Std_' + name, widget)
 
         #################################
         # Canvas for excitation curves

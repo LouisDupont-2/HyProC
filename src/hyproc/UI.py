@@ -31,6 +31,7 @@ from .dialog_import import CurveImportDialog
 from .curve_import import read_curve_tables, validate_curve
 
 STRAGGLING_MODELS = ("None", "Rud", "Rud corr", "Bohr")
+STANDARD_AREAL_DENSITY = 1500.0
 
 # Main GUI application
 class GUI_App(tk.Tk):
@@ -57,7 +58,7 @@ class GUI_App(tk.Tk):
         self.selected_layer_index = 0
         self.selected_el_index = 0
 
-        self.std_target = Target()
+        self.std_target = Target(areal_density=STANDARD_AREAL_DENSITY)
         self.selected_Std_index = 0
 
         self.start_ctr = 0
@@ -93,6 +94,11 @@ class GUI_App(tk.Tk):
             *descendants(self.Std_frame),
         ]
         self._manual_k_exempt_widgets = {self.manual_k_label, self.manual_k_entry}
+        self._standard_layer_widgets = {
+            self.Std_layer_listbox, self.Std_AD_entry, self.Std_add_layer_button,
+            self.Std_remove_layer_button, self.Std_up_button, self.Std_down_button,
+            self.Std_duplicate_button,
+        }
         self.on_manual_k_change()
 
     def _format_manual_k_display(self, value: str)->str:
@@ -132,13 +138,14 @@ class GUI_App(tk.Tk):
         for widget in self._standard_widgets:
             if widget in self._manual_k_exempt_widgets:
                 continue
+            disabled = manual_k_enabled or widget in self._standard_layer_widgets
             if isinstance(widget, ttk.Widget):
-                if manual_k_enabled:
+                if disabled:
                     widget.state(["disabled"])
                 else:
                     widget.state(["!disabled"])
             elif isinstance(widget, tk.Listbox):
-                widget.configure(state="disabled" if manual_k_enabled else "normal")
+                widget.configure(state="disabled" if disabled else "normal")
         self.std_frame.state(["disabled"] if manual_k_enabled else ["!disabled"])
         self.TargetStd_notebook.tab(
             self.Std_frame,
@@ -391,6 +398,21 @@ class GUI_App(tk.Tk):
         top_index = self._get_listbox_top_index(self.Std_elem_listbox)
         self.Std_elem_listbox.delete(0, tk.END)
         current_layer = self.std_target["layers"][0]
+        # Disabled Tk widgets must be temporarily enabled to update their contents.
+        self.Std_layer_listbox.configure(state="normal")
+        self.Std_layer_listbox.delete(0, tk.END)
+        data = sorted(current_layer["elements"], key=lambda el: el["percent_at"], reverse=True)
+        elements_str = ', '.join(
+            f"{periodictable.elements[el['Z']].symbol}{round(el['percent_at'])}" for el in data
+        )
+        self.Std_layer_listbox.insert(
+            tk.END, f"Layer 1: {current_layer['areal_density']} TFU ({elements_str})"
+        )
+        self.Std_layer_listbox.configure(state="disabled")
+        self.Std_AD_entry.state(["!disabled"])
+        self.Std_AD_entry.delete(0, tk.END)
+        self.Std_AD_entry.insert(0, str(current_layer["areal_density"]))
+        self.Std_AD_entry.state(["disabled"])
         for el in current_layer["elements"]:
             self.Std_elem_listbox.insert(
                 tk.END,
@@ -671,7 +693,7 @@ class GUI_App(tk.Tk):
                 selected_layer = layers[0]
 
             self.std_target["layers"] = [selected_layer]
-            self.std_target["layers"][0]["areal_density"] = 1750.0
+            self.std_target["layers"][0]["areal_density"] = STANDARD_AREAL_DENSITY
 
             stopping_model = self._get_stopping_model()
             if stopping_model == "SRIM" and not calc_stopping.check_srim_path(self.settings_path):
