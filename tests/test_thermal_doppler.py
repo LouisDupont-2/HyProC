@@ -35,8 +35,9 @@ class ThermalDopplerTest(unittest.TestCase):
         target = Target()
         target["layers"] = [Layer(document()["target"]["layers"][0])]
         kwargs = {"E_R": 100, "Gamma": 1, "sigma_R": 2, "Z1": 1}
-        a = broadening(100, target, 3, False, "None", thermal_sd=4, **kwargs)
-        b = broadening(100, target, 5, False, "None", **kwargs)
+        width = thermal_doppler_sd(100, 20, 1, 1)
+        a = broadening(100, target, 3, False, "None", temperature_c=20, projectile_mass=1, target_mass=1, **kwargs)
+        b = broadening(100, target, np.hypot(3, width), False, "None", **kwargs)
         np.testing.assert_allclose(a[1], b[1])
         np.testing.assert_allclose(a[2], b[2])
 
@@ -54,14 +55,16 @@ class ThermalDopplerTest(unittest.TestCase):
              patch("hyproc.simulation.calc_curve.compute_yield", return_value=1), \
              patch("hyproc.simulation.calc_broadening.broadening", return_value=(0, x, y, [], 0)) as calc:
             simulate(doc)
-            standard, target = [call.kwargs["thermal_sd"] for call in calc.call_args_list]
-            self.assertAlmostEqual(standard, thermal_doppler_sd(100, 0, 1, 1))
-            self.assertAlmostEqual(target, thermal_doppler_sd(100, 100, 1, 1))
+            standard, target = [call.kwargs["temperature_c"] for call in calc.call_args_list]
+            self.assertEqual(standard, 0)
+            self.assertEqual(target, 100)
+            self.assertGreater(calc.call_args.kwargs["projectile_mass"], 0)
+            self.assertGreater(calc.call_args.kwargs["target_mass"], 0)
             calc.reset_mock()
             doc["options"].update(manual_k_factor="1", standard_temperature="bad")
             del doc["options"]["target_temperature"]
             simulate(doc)
-            self.assertAlmostEqual(calc.call_args.kwargs["thermal_sd"], thermal_doppler_sd(100, 20, 1, 1))
+            self.assertEqual(calc.call_args.kwargs["temperature_c"], 20)
             doc["options"]["target_temperature"] = "bad"
             with self.assertRaisesRegex(ValueError, "Target temperature"):
                 simulate(doc)

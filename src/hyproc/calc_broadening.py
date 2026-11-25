@@ -145,7 +145,16 @@ def find_total_thickness(E_in: float, E_loss: list[float], index: int, target: T
     thickness+= thickness_in_last_layer
     return thickness
 
-def DopplerSD(target: Target, index: int)-> float:
+def thermal_doppler_sd(E_R: float, temperature_c: float, projectile_mass: float, target_mass: float) -> float:
+    """Thermal target-motion width in lab beam energy (keV), free-gas approximation.
+
+    The target's one-dimensional Maxwellian velocity distribution gives
+    delta_T² = 2 E_R k_B T (projectile mass / reacting-nucleus mass).
+    """
+    boltzmann_keV_per_K = 8.617333262145e-8
+    return float(np.sqrt(2 * E_R * boltzmann_keV_per_K * (temperature_c + 273.15) * projectile_mass / target_mass))
+
+def quantum_doppler_sd(target: Target, index: int)-> float:
     """
     Calculates the Doppler standard deviation (delta_D) for the incident particle 
     based on the atomic number (Z) of the layer where the resonance is reached.
@@ -260,18 +269,7 @@ def save(vector1: Sequence[float], vector2: Sequence[float], filename: str)-> No
         for v1, v2 in zip(vector1, vector2):
             f.write(f"{v1}\t{v2}\n")
 
-
-def thermal_doppler_sd(E_R: float, temperature_c: float, projectile_mass: float, target_mass: float) -> float:
-    """Thermal target-motion width in lab beam energy (keV), free-gas approximation.
-
-    The target's one-dimensional Maxwellian velocity distribution gives
-    sigma_E² = 2 E_R k_B T (projectile mass / reacting-nucleus mass).
-    """
-    boltzmann_keV_per_K = 8.617333262145e-8
-    return float(np.sqrt(2 * E_R * boltzmann_keV_per_K * (temperature_c + 273.15) * projectile_mass / target_mass))
-
-
-def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int, off_resonance: float = 0.0, thermal_sd: float = 0.0)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
+def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, straggling_model: str="Rud corr", saveData: bool=False, savepath: str | None = None, *, E_R: float, Gamma: float, sigma_R: float, Z1: int, off_resonance: float = 0.0, temperature_c: float | None = None, projectile_mass: float | None = None, target_mass: float | None = None)-> tuple[float, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], float]:
     """
     Calculates the full energy broadening profile of an incident particle in a multi-layer target,
     accounting for cross section, beam, Doppler, and straggling broadenings, and converts the energy distribution
@@ -286,6 +284,8 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         straggling_model (str, optional) : The straggling model.
         saveData (bool, optional) : Whether to save intermediate broadening data to files (default False).
         savepath (str, optional) : Path to directory for saving data files if saveData is True.
+        temperature_c (float, optional): Target temperature in °C; omit to exclude thermal broadening.
+        projectile_mass, target_mass (float, optional): Isotope masses in the same units, required with temperature.
 
     Returns
     -------
@@ -297,15 +297,23 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
     """
     E_loss = loss_axis(target)
     index = find_layer_index(E_in, E_loss, E_R)
+
+    # Thermal Doppler
+    if temperature_c is None:
+        delta_T = 0.0
+    else:
+        if projectile_mass is None or target_mass is None:
+            raise ValueError("Projectile and target masses are required for thermal broadening.")
+        delta_T = thermal_doppler_sd(E_R, temperature_c, projectile_mass, target_mass)
     
-    # Doppler
+    # Quantum Doppler
     if Doppler: 
         if index==-2:
-            delta_D = DopplerSD(target, 0)
+            delta_D = quantum_doppler_sd(target, 0)
         elif index==-1:
-            delta_D = DopplerSD(target, len(target["layers"])-1)
+            delta_D = quantum_doppler_sd(target, len(target["layers"])-1)
         else:
-            delta_D = DopplerSD(target, index)
+            delta_D = quantum_doppler_sd(target, index)
     else:
         delta_D = 0.0
 
@@ -316,7 +324,7 @@ def broadening(E_in: float, target: Target, delta_B: float, Doppler: bool=True, 
         delta_S = stragg(E_in, E_loss, index, target, straggling_model, E_R, Z1)
 
     # Total Gaussian broadening
-    SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2+thermal_sd**2)
+    SD_gauss = np.sqrt(delta_B**2+delta_D**2+delta_S**2+delta_T**2)
 
     # Where to center the broadening curve
     if index == -2:

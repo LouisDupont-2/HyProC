@@ -82,9 +82,6 @@ def _simulate(
     projectile = projectile_arguments(reaction, srim_path)
     target_temperature = validate_temperature(options.get("target_temperature", "20"), "Target")
     target_mass = periodictable.elements[int(reaction["Z2"])][int(reaction["A2"])].mass
-    thermal_width = lambda temperature: calc_broadening.thermal_doppler_sd(
-        resonance["E_R"], temperature, projectile["M1"], target_mass
-    )
     stopping_model = options.get("stopping_model", "SRIM")
     straggling_model = options["straggling_model"]
     if straggling_model not in {"None", "Rud", "Rud corr", "Bohr"}:
@@ -94,6 +91,8 @@ def _simulate(
         "Gamma": resonance["Gamma"],
         "sigma_R": resonance["Sigma"],
         "Z1": projectile["Z1"],
+        "projectile_mass": projectile["M1"],
+        "target_mass": target_mass,
         "off_resonance": resonance["Off-resonance"],
     }
 
@@ -117,7 +116,7 @@ def _simulate(
         layer["stopping"] = standard_stopping
         _, x, y, _, _ = calc_broadening.broadening(
             standard_energy, standard, beam_width, options["doppler"], straggling_model,
-            thermal_sd=thermal_width(standard_temperature), **broadening_arguments,
+            temperature_c=standard_temperature, **broadening_arguments,
         )
         standard_integral = calc_curve.compute_yield(standard, x, y, z2, resonance["Off-resonance"])
         if not np.isfinite(standard_integral) or standard_integral == 0:
@@ -135,7 +134,7 @@ def _simulate(
         _, x, y, _, _ = calc_broadening.broadening(
             energy, target, beam_width, options["doppler"], straggling_model,
             saveData=path is not None, savepath=str(path) if path is not None else None,
-            thermal_sd=thermal_width(target_temperature), **broadening_arguments,
+            temperature_c=target_temperature, **broadening_arguments,
         )
         yields.append(float(normalization * calc_curve.compute_yield(target, x, y, z2, resonance["Off-resonance"])))
     return SimulationResult([energy + offset for energy in incident_energies], yields, normalization, standard_stopping)
