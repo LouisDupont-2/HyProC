@@ -49,13 +49,38 @@
       "detail": {
         "tickets": 1
       }
+    },
+    {
+      "at": "2026-11-26T16:00:16.397Z",
+      "event": "ticket_started",
+      "phase": "ship",
+      "files": [
+        "02-plan/tickets/01-restore-history-target.md",
+        "03-implement/01-restore-history-target/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "01-restore-history-target"
+      }
+    },
+    {
+      "at": "2026-11-26T16:03:26.266Z",
+      "event": "ticket_done",
+      "phase": "finish-pending",
+      "files": [
+        "03-implement/01-restore-history-target/commit-log.md"
+      ],
+      "detail": {
+        "ticket": "01-restore-history-target",
+        "commit": "422ece2"
+      }
     }
   ],
-  "current_phase": "ship",
+  "current_phase": "finish-pending",
   "git": {
     "branch": "feat/restore-target-history",
     "base_branch": "main",
     "branch_created_at": "2026-11-26T16:00:08.396Z",
     "pr_url": null
-  }
+  },
+  "ship_mode": "inline"
 }
