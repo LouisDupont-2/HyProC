@@ -1,0 +1,61 @@
+{
+  "session_id": "2026-11-26__restore-target-from-chi-square-history",
+  "feature_name": "restore target from chi-square history",
+  "scratch_dir": ".scratch/tests/2026-11-26__restore-target-from-chi-square-history",
+  "created_at": "2026-11-26T15:43:31.528Z",
+  "template_version": 2,
+  "history": [
+    {
+      "at": "2026-11-26T15:43:31.528Z",
+      "event": "session_started",
+      "phase": "grill",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-26T15:58:03.610Z",
+      "event": "grill_written",
+      "phase": "plan-not-started",
+      "files": [
+        "01-grill/resume.md"
+      ]
+    },
+    {
+      "at": "2026-11-26T15:58:08.855Z",
+      "event": "plan_started",
+      "phase": "plan",
+      "files": [
+        "02-plan/plan.md"
+      ]
+    },
+    {
+      "at": "2026-11-26T16:00:08.396Z",
+      "event": "branch_created",
+      "phase": "plan",
+      "detail": {
+        "branch": "feat/restore-target-history",
+        "base": "main"
+      }
+    },
+    {
+      "at": "2026-11-26T16:00:08.411Z",
+      "event": "plan_written",
+      "phase": "ship",
+      "files": [
+        "02-plan/plan.md",
+        "02-plan/tickets/01-restore-history-target.md"
+      ],
+      "detail": {
+        "tickets": 1
+      }
+    }
+  ],
+  "current_phase": "ship",
+  "git": {
+    "branch": "feat/restore-target-history",
+    "base_branch": "main",
+    "branch_created_at": "2026-11-26T16:00:08.396Z",
+    "pr_url": null
+  }
+}
