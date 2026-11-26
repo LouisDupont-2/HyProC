@@ -65,10 +65,12 @@ class GUI_App(tk.Tk):
         self.visible_count = 9
         self.chi_val=[]
         self.chi_energy_bounds_history: list[tuple[float | None, float | None] | None] = []
+        self.chi_target_history: list[Target | None] = []
         self._manual_k_original_value = None
         self._manual_k_display_value = None
 
         UI_geometry.create_widgets(self)
+        self.canvas1.mpl_connect("button_press_event", self.on_chi_history_click)
         self.reload_reaction_settings()
         self._initialize_standard_controls()
         self.refresh_layer_list()
@@ -184,7 +186,7 @@ class GUI_App(tk.Tk):
 
         self.ax1.invert_yaxis()
         self.ax1.set_yticks(y_positions)
-        self.ax1.set_yticklabels([str(i + self.start_ctr) for i in y_positions])
+        self.ax1.set_yticklabels([str(i + self.start_ctr + 1) for i in y_positions])
         self.ax1.set_ylim(self.visible_count - 0.5, -0.5)
 
         for i, (bar, val) in enumerate(zip(bars, visible_values)):
@@ -203,6 +205,28 @@ class GUI_App(tk.Tk):
         # This tightens layout
         #self.figure1.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.05)
         self.canvas1.draw()
+
+    def on_chi_history_click(self, event)->None:
+        if event.button != 1 or event.x is None or event.y is None:
+            return
+        # Use the full canvas width so labels and whitespace beside bars are clickable.
+        y = self.ax1.transData.inverted().transform((event.x, event.y))[1]
+        row = int(np.floor(y + 0.5))
+        index = self.start_ctr + row
+        if row < 0 or row >= self.visible_count or index >= len(self.chi_val):
+            return
+        snapshot = self.chi_target_history[index]
+        if snapshot is None:
+            messagebox.showinfo("Restore target", f"No target was saved for calculation {index + 1}.")
+            return
+        if not messagebox.askyesno("Restore target", f"Restore the target from calculation {index + 1}?"):
+            return
+        self.target = make_target(snapshot)
+        self.selected_layer_index = 0
+        self.selected_el_index = 0
+        self.refresh_layer_list()
+        self.refresh_element_list()
+        self.TargetStd_notebook.select(self.target_frame)
 
     def on_chi_energy_bounds_change(self, event=None)->None:
         self.update_exc_plot()
@@ -819,6 +843,7 @@ class GUI_App(tk.Tk):
             },
             "chi_squared": self.chi_val,
             "chi_squared_energy_bounds": self.chi_energy_bounds_history,
+            "chi_squared_targets": self.chi_target_history,
             "chi_squared_start": self.start_ctr,
             "options": {
                 "standard_yield": self.std_Yield_entry.get(),
@@ -831,7 +856,7 @@ class GUI_App(tk.Tk):
                 "straggling_model": self.straggling_model_combobox.get(),
                 "doppler": self.Doppler_bool.get(),
                 "save_broadening_data": self.broadSave_bool.get(),
-                "track_target_changes": self.TrackTargetChange_bool.get(),
+                "track_target_changes": False,
                 "autoscale": self.autoscale_exc_bool.get(),
                 "sim_markers": self.sim_markers_bool.get(),
                 "show_chi_energy_bounds": self.show_chi_energy_bounds_bool.get(),
@@ -886,6 +911,12 @@ class GUI_App(tk.Tk):
                 raise ValueError("Chi-squared history must be stored as a list.")
             if not all(isinstance(value, (int, float)) for value in chi_values):
                 raise ValueError("Chi-squared values must be numeric.")
+            chi_targets = data.get("chi_squared_targets")
+            if chi_targets is None:
+                chi_targets = [None] * len(chi_values)
+            if not isinstance(chi_targets, list) or len(chi_targets) != len(chi_values):
+                raise ValueError("Chi-squared target history must match the chi-squared history length.")
+            chi_targets = [make_target(item) if item is not None else None for item in chi_targets]
             chi_bounds_history = data.get("chi_squared_energy_bounds")
             if chi_bounds_history is None:
                 chi_bounds_history = [None] * len(chi_values)
@@ -939,7 +970,7 @@ class GUI_App(tk.Tk):
             standard_temperature = options.get("standard_temperature", "20")
             validate_temperature(target_temperature, "Target")
             validate_temperature(standard_temperature, "Standard")
-            if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
+            if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data")):
                 raise ValueError("Saved calculation flags must be boolean values.")
             autoscale = options.get("autoscale", True)
             if not isinstance(autoscale, bool):
@@ -1003,6 +1034,7 @@ class GUI_App(tk.Tk):
         self.sim_curve = sim_curve
         self.chi_val = chi_values
         self.chi_energy_bounds_history = chi_bounds_history
+        self.chi_target_history = chi_targets
         self.start_ctr = max(0, min(chi_start, max(0, len(self.chi_val) - self.visible_count)))
         self.selected_layer_index = 0
         self.selected_el_index = 0
@@ -1031,7 +1063,6 @@ class GUI_App(tk.Tk):
         self.straggling_model_combobox.set(straggling_model)
         self.Doppler_bool.set(options["doppler"])
         self.broadSave_bool.set(options["save_broadening_data"])
-        self.TrackTargetChange_bool.set(options["track_target_changes"])
         self.autoscale_exc_bool.set(autoscale)
         self.sim_markers_bool.set(sim_markers)
         self.show_chi_energy_bounds_bool.set(show_chi_energy_bounds)
@@ -1089,6 +1120,7 @@ class GUI_App(tk.Tk):
     def reset_chi_history(self)->None:
         self.chi_val = []
         self.chi_energy_bounds_history = []
+        self.chi_target_history = []
         self.start_ctr = 0
         self.update_chi_plot()
 
@@ -1209,6 +1241,7 @@ class GUI_App(tk.Tk):
             calculation_start_time = time.perf_counter()
             print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
             document["target"] = make_target(self.target)
+            target_snapshot = make_target(document["target"])
             self.target.normalize_all_layers()
             self.refresh_layer_list()
             self.refresh_element_list()
@@ -1216,11 +1249,8 @@ class GUI_App(tk.Tk):
                 self.session_dir = str(Path(save_root, "HyProC", "Session " + self.timestamp))
             run_directory = Path(self.session_dir, f"Run {self.runNbr}")
             save_broadening = options["save_broadening_data"]
-            track_target = options["track_target_changes"]
-            if save_broadening or track_target:
+            if save_broadening:
                 run_directory.mkdir(parents=True)
-            if track_target:
-                self.save_json(savepath=str(run_directory / "_target.json"))
 
             def diagnostic_path(index, energy):
                 path = run_directory / f"datapoint{index}"
@@ -1253,11 +1283,12 @@ class GUI_App(tk.Tk):
             )
             self.chi_val.append(round(chi, 2))
             self.chi_energy_bounds_history.append(bounds)
+            self.chi_target_history.append(target_snapshot)
             if len(self.chi_val) > self.visible_count:
                 self.scroll_down()
             self.update_chi_plot()
             self.runNbr += 1
-            if save_broadening or track_target:
+            if save_broadening:
                 print(f"Run data saved in: {run_directory}")
             print(f"Calculation took {time.perf_counter() - calculation_start_time:.2f} seconds.")
         except Exception as error:

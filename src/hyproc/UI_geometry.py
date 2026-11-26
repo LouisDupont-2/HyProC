@@ -213,11 +213,11 @@ def create_widgets(self):
         self.std_frame = ttk.LabelFrame(self.left_frame, text="Standard")
         self.std_frame.pack(fill='x', expand=False, padx=10, pady=5)
         self.std_frame.grid_columnconfigure(1, weight=1)
-
-        std_label_padding = (10, 0)
-        std_field_padding = 10
-        std_row_padding = (5, 0)
-        std_button_padding = 5
+        
+        std_label_padding = (10, 0) # padx
+        std_field_padding = 10 # padx
+        std_row_padding = (3, 0) # pady
+        std_button_padding = 5 # pady
 
         self.manual_k_label = ttk.Label(self.std_frame, text="K factor (opt.):")
         self.manual_k_label.grid(row=0, column=0, padx=std_label_padding, pady=std_row_padding, ipadx=10, sticky='w')
@@ -251,9 +251,9 @@ def create_widgets(self):
         self.options_frame1.pack(fill='x', expand=False, padx=10, pady=(0,5))
         self.options_frame1.grid_columnconfigure(1, weight=1)
 
-        row_padding = (5, 0)
-        label_padding = (0, 5)
-        field_padding = 5
+        row_padding = (3, 0) # pady
+        label_padding = (0, 5) # padx
+        field_padding = 5 # padx
 
         ttk.Label(self.options_frame1, text="Stopping model:").grid(row=0, column=0, padx=label_padding, pady=row_padding, sticky='w')
         self.stopping_model_combobox = ttk.Combobox(
@@ -291,19 +291,17 @@ def create_widgets(self):
         self.options_frame2 = ttk.Frame(self.options_frame)
         self.options_frame2.pack(fill='x', expand=False, padx=5, pady=(0, 5))
 
-        checkbox_padding = 5
+        checkbox_padding_x = 5
+        checkbox_padding_y = 0
 
         self.Doppler_bool = tk.BooleanVar(value=True)
         self.options_doppler_entry = ttk.Checkbutton(self.options_frame2,text="Quantum Doppler", variable=self.Doppler_bool)
-        self.options_doppler_entry.pack(padx=checkbox_padding, pady=0, anchor='w')
+        self.options_doppler_entry.pack(padx=checkbox_padding_x, pady=checkbox_padding_y, anchor='w')
 
         self.broadSave_bool = tk.BooleanVar(value=False)
         self.broadSave_entry = ttk.Checkbutton(self.options_frame2,text="Save broadening data", variable=self.broadSave_bool)
-        self.broadSave_entry.pack(padx=checkbox_padding, pady=0, anchor='w')
+        self.broadSave_entry.pack(padx=checkbox_padding_x, pady=checkbox_padding_y, anchor='w')
 
-        self.TrackTargetChange_bool = tk.BooleanVar(value=False)
-        self.TrackTargetChange_entry = ttk.Checkbutton(self.options_frame2,text="Track target changes", variable=self.TrackTargetChange_bool)
-        self.TrackTargetChange_entry.pack(padx=checkbox_padding, pady=0, anchor='w')    
         
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Chi-squared graph

@@ -18,6 +18,6 @@
         "E_R": 429.0,
         "Gamma": 0.12,
         "Sigma": 1.65,
-        "Off-resonance": 0.0
+        "Off-resonance": 4e-5
     }
 }
