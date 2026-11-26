@@ -81,14 +81,30 @@
       "detail": {
         "bump": "minor"
       }
+    },
+    {
+      "at": "2026-11-26T16:09:12.408Z",
+      "event": "pr_opened",
+      "phase": "finish-pending",
+      "detail": {
+        "url": "https://github.com/LouisDupont-2/HyProC/pull/6"
+      }
+    },
+    {
+      "at": "2026-11-26T16:09:06.755Z",
+      "event": "session_finished",
+      "phase": "finished",
+      "files": [
+        "INDEX.md"
+      ]
     }
   ],
-  "current_phase": "finish-pending",
+  "current_phase": "finished",
   "git": {
     "branch": "feat/restore-target-history",
     "base_branch": "main",
     "branch_created_at": "2026-11-26T16:00:08.396Z",
-    "pr_url": null
+    "pr_url": "https://github.com/LouisDupont-2/HyProC/pull/6"
   },
   "ship_mode": "inline",
   "changelog": {
@@ -98,5 +114,7 @@
     "bullets": 1,
     "path": ".work/changelog/2026-11-26__restore-target-from-chi-square-history.md",
     "written_at": "2026-11-26T16:03:57.153Z"
-  }
+  },
+  "manualDelivery": "Rebuilt manual/HyProC_Manual.pdf. Document target restoration from history",
+  "finished_at": "2026-11-26T16:09:06.755Z"
 }

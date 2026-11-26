@@ -1,6 +1,7 @@
 ---
 bump: minor
 floor: minor
+inUnreleased: true
 ---
 ### Added
 
