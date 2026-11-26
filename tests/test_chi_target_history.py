@@ -52,6 +52,7 @@ class ChiTargetHistoryTest(unittest.TestCase):
         app.chi_target_history = [make_target(app.target)]
         settings = json.loads(self.settings_path.read_text(encoding="utf-8"))
         document = app._simulation_document(settings)
+        document["options"]["track_target_changes"] = True  # Legacy files remain loadable.
         path = Path(self.temp.name) / "simulation.json"
 
         def load():
@@ -63,6 +64,7 @@ class ChiTargetHistoryTest(unittest.TestCase):
         load()
         self.assertEqual(len(app.chi_target_history), 1)
         self.assertEqual(app.chi_target_history[0], app.target)
+        self.assertFalse(app._simulation_document(settings)["options"]["track_target_changes"])
         del document["chi_squared_targets"]
         save_simulation(path, document)
         load()

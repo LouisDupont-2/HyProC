@@ -856,7 +856,7 @@ class GUI_App(tk.Tk):
                 "straggling_model": self.straggling_model_combobox.get(),
                 "doppler": self.Doppler_bool.get(),
                 "save_broadening_data": self.broadSave_bool.get(),
-                "track_target_changes": self.TrackTargetChange_bool.get(),
+                "track_target_changes": False,
                 "autoscale": self.autoscale_exc_bool.get(),
                 "sim_markers": self.sim_markers_bool.get(),
                 "show_chi_energy_bounds": self.show_chi_energy_bounds_bool.get(),
@@ -970,7 +970,7 @@ class GUI_App(tk.Tk):
             standard_temperature = options.get("standard_temperature", "20")
             validate_temperature(target_temperature, "Target")
             validate_temperature(standard_temperature, "Standard")
-            if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data", "track_target_changes")):
+            if not all(isinstance(options[key], bool) for key in ("doppler", "save_broadening_data")):
                 raise ValueError("Saved calculation flags must be boolean values.")
             autoscale = options.get("autoscale", True)
             if not isinstance(autoscale, bool):
@@ -1063,7 +1063,6 @@ class GUI_App(tk.Tk):
         self.straggling_model_combobox.set(straggling_model)
         self.Doppler_bool.set(options["doppler"])
         self.broadSave_bool.set(options["save_broadening_data"])
-        self.TrackTargetChange_bool.set(options["track_target_changes"])
         self.autoscale_exc_bool.set(autoscale)
         self.sim_markers_bool.set(sim_markers)
         self.show_chi_energy_bounds_bool.set(show_chi_energy_bounds)
@@ -1250,11 +1249,8 @@ class GUI_App(tk.Tk):
                 self.session_dir = str(Path(save_root, "HyProC", "Session " + self.timestamp))
             run_directory = Path(self.session_dir, f"Run {self.runNbr}")
             save_broadening = options["save_broadening_data"]
-            track_target = options["track_target_changes"]
-            if save_broadening or track_target:
+            if save_broadening:
                 run_directory.mkdir(parents=True)
-            if track_target:
-                self.save_json(savepath=str(run_directory / "_target.json"))
 
             def diagnostic_path(index, energy):
                 path = run_directory / f"datapoint{index}"
@@ -1292,7 +1288,7 @@ class GUI_App(tk.Tk):
                 self.scroll_down()
             self.update_chi_plot()
             self.runNbr += 1
-            if save_broadening or track_target:
+            if save_broadening:
                 print(f"Run data saved in: {run_directory}")
             print(f"Calculation took {time.perf_counter() - calculation_start_time:.2f} seconds.")
         except Exception as error:

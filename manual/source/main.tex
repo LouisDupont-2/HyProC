@@ -169,7 +169,6 @@ The Options panel controls the physical models and output:
     \item \textbf{Offset (keV):} Energy offset used for the calculation and reversed for displayed curve energies.
     \item \textbf{Quantum Doppler:} Includes or omits the quantum Doppler contribution.
     \item \textbf{Save broadening data:} Writes intermediate broadening data for each calculation run. The output folder structure is described in the Broadening data subsection.
-    \item \textbf{Track target changes:} Saves a copy of the target used for each calculation run.
 \end{itemize}
 
 \subsection{Target and standard editor}
@@ -325,7 +324,7 @@ Broadening data can be saved by ticking the "Save broadening data" box. When cal
 
 \texttt{Total\_Gauss.txt} contains the combined Gaussian from beam width, straggling, thermal Doppler broadening, and (when enabled) quantum Doppler broadening. \texttt{xsec.txt} contains the Lorentzian and off-resonance cross sections. The broadened profile is saved as \texttt{Total\_Broadening.txt}; \texttt{Total\_Broadening\_TFU.txt} contains the corresponding profile mapped to areal depth in TFU. These files cover the finite resonance grid; the yield also includes the baseline outside that grid. The separate \texttt{Beam.txt}, \texttt{Stragg.txt}, and \texttt{Doppler.txt} files show the beam, straggling, and quantum Doppler components.
 
-A Session folder is created when broadening data are saved or that the track target changes option is enabled for the first time after the UI is launched. A Run folder is created whenever a calculation is made (with the save broadening data on or with the target tracking on). For each incident energy, a datapoint folder is created.
+A Session folder is created when broadening data are saved for the first time after the UI is launched. A Run folder is created for each calculation with broadening data enabled. For each incident energy, a datapoint folder is created.
 
 The broadening data can be visualised using the broadplotter.py script (recommended) or through a third-party software (OriginLab, ...).
 

@@ -302,9 +302,6 @@ def create_widgets(self):
         self.broadSave_entry = ttk.Checkbutton(self.options_frame2,text="Save broadening data", variable=self.broadSave_bool)
         self.broadSave_entry.pack(padx=checkbox_padding_x, pady=checkbox_padding_y, anchor='w')
 
-        self.TrackTargetChange_bool = tk.BooleanVar(value=False)
-        self.TrackTargetChange_entry = ttk.Checkbutton(self.options_frame2,text="Track target changes", variable=self.TrackTargetChange_bool)
-        self.TrackTargetChange_entry.pack(padx=checkbox_padding_x, pady=checkbox_padding_y, anchor='w')    
         
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         # Chi-squared graph
