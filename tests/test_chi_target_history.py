@@ -34,6 +34,7 @@ class ChiTargetHistoryTest(unittest.TestCase):
         app.chi_target_history[6]["layers"][0]["areal_density"] = 456
         app.start_ctr = 2
         app.update_chi_plot()
+        self.assertEqual(app.ax1.get_yticklabels()[4].get_text(), "7")
         with patch("hyproc.UI.messagebox.askyesno", return_value=False):
             self.click(4, x=0)
         self.assertNotEqual(app.target["layers"][0]["areal_density"], 456)
@@ -68,7 +69,7 @@ class ChiTargetHistoryTest(unittest.TestCase):
         self.assertEqual(app.chi_target_history, [None])
         with patch("hyproc.UI.messagebox.showinfo") as info:
             self.click(0)
-        info.assert_called_once()
+        info.assert_called_once_with("Restore target", "No target was saved for calculation 1.")
         document["chi_squared_targets"] = [{"layers": []}]
         save_simulation(path, document)
         original = app.target

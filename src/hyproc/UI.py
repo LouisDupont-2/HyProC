@@ -186,7 +186,7 @@ class GUI_App(tk.Tk):
 
         self.ax1.invert_yaxis()
         self.ax1.set_yticks(y_positions)
-        self.ax1.set_yticklabels([str(i + self.start_ctr) for i in y_positions])
+        self.ax1.set_yticklabels([str(i + self.start_ctr + 1) for i in y_positions])
         self.ax1.set_ylim(self.visible_count - 0.5, -0.5)
 
         for i, (bar, val) in enumerate(zip(bars, visible_values)):
@@ -217,7 +217,7 @@ class GUI_App(tk.Tk):
             return
         snapshot = self.chi_target_history[index]
         if snapshot is None:
-            messagebox.showinfo("Restore target", "No target was saved for this calculation.")
+            messagebox.showinfo("Restore target", f"No target was saved for calculation {index + 1}.")
             return
         if not messagebox.askyesno("Restore target", f"Restore the target from calculation {index + 1}?"):
             return
