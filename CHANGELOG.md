@@ -1,5 +1,11 @@
 # Changelog
 
+## 26 November 2026 - Unreleased
+
+### Added
+
+- Restore the target from a calculation by clicking its chi-squared history row; target history is saved with the simulation.
+
 ## 24 November 2026 - Unreleased
 
 ### Added
