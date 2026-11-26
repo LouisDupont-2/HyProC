@@ -65,10 +65,12 @@ class GUI_App(tk.Tk):
         self.visible_count = 9
         self.chi_val=[]
         self.chi_energy_bounds_history: list[tuple[float | None, float | None] | None] = []
+        self.chi_target_history: list[Target | None] = []
         self._manual_k_original_value = None
         self._manual_k_display_value = None
 
         UI_geometry.create_widgets(self)
+        self.canvas1.mpl_connect("button_press_event", self.on_chi_history_click)
         self.reload_reaction_settings()
         self._initialize_standard_controls()
         self.refresh_layer_list()
@@ -203,6 +205,28 @@ class GUI_App(tk.Tk):
         # This tightens layout
         #self.figure1.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.05)
         self.canvas1.draw()
+
+    def on_chi_history_click(self, event)->None:
+        if event.button != 1 or event.x is None or event.y is None:
+            return
+        # Use the full canvas width so labels and whitespace beside bars are clickable.
+        y = self.ax1.transData.inverted().transform((event.x, event.y))[1]
+        row = int(np.floor(y + 0.5))
+        index = self.start_ctr + row
+        if row < 0 or row >= self.visible_count or index >= len(self.chi_val):
+            return
+        snapshot = self.chi_target_history[index]
+        if snapshot is None:
+            messagebox.showinfo("Restore target", "No target was saved for this calculation.")
+            return
+        if not messagebox.askyesno("Restore target", f"Restore the target from calculation {index + 1}?"):
+            return
+        self.target = make_target(snapshot)
+        self.selected_layer_index = 0
+        self.selected_el_index = 0
+        self.refresh_layer_list()
+        self.refresh_element_list()
+        self.TargetStd_notebook.select(self.target_frame)
 
     def on_chi_energy_bounds_change(self, event=None)->None:
         self.update_exc_plot()
@@ -819,6 +843,7 @@ class GUI_App(tk.Tk):
             },
             "chi_squared": self.chi_val,
             "chi_squared_energy_bounds": self.chi_energy_bounds_history,
+            "chi_squared_targets": self.chi_target_history,
             "chi_squared_start": self.start_ctr,
             "options": {
                 "standard_yield": self.std_Yield_entry.get(),
@@ -886,6 +911,12 @@ class GUI_App(tk.Tk):
                 raise ValueError("Chi-squared history must be stored as a list.")
             if not all(isinstance(value, (int, float)) for value in chi_values):
                 raise ValueError("Chi-squared values must be numeric.")
+            chi_targets = data.get("chi_squared_targets")
+            if chi_targets is None:
+                chi_targets = [None] * len(chi_values)
+            if not isinstance(chi_targets, list) or len(chi_targets) != len(chi_values):
+                raise ValueError("Chi-squared target history must match the chi-squared history length.")
+            chi_targets = [make_target(item) if item is not None else None for item in chi_targets]
             chi_bounds_history = data.get("chi_squared_energy_bounds")
             if chi_bounds_history is None:
                 chi_bounds_history = [None] * len(chi_values)
@@ -1003,6 +1034,7 @@ class GUI_App(tk.Tk):
         self.sim_curve = sim_curve
         self.chi_val = chi_values
         self.chi_energy_bounds_history = chi_bounds_history
+        self.chi_target_history = chi_targets
         self.start_ctr = max(0, min(chi_start, max(0, len(self.chi_val) - self.visible_count)))
         self.selected_layer_index = 0
         self.selected_el_index = 0
@@ -1089,6 +1121,7 @@ class GUI_App(tk.Tk):
     def reset_chi_history(self)->None:
         self.chi_val = []
         self.chi_energy_bounds_history = []
+        self.chi_target_history = []
         self.start_ctr = 0
         self.update_chi_plot()
 
@@ -1209,6 +1242,7 @@ class GUI_App(tk.Tk):
             calculation_start_time = time.perf_counter()
             print("*-*-*-*-*-*-* Starting Calculation *-*-*-*-*-*-*")
             document["target"] = make_target(self.target)
+            target_snapshot = make_target(document["target"])
             self.target.normalize_all_layers()
             self.refresh_layer_list()
             self.refresh_element_list()
@@ -1253,6 +1287,7 @@ class GUI_App(tk.Tk):
             )
             self.chi_val.append(round(chi, 2))
             self.chi_energy_bounds_history.append(bounds)
+            self.chi_target_history.append(target_snapshot)
             if len(self.chi_val) > self.visible_count:
                 self.scroll_down()
             self.update_chi_plot()
